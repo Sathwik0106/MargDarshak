@@ -1,9 +1,17 @@
+# Environment & Secrets
+.env
+.env.local
+
 # Python Virtual Environment
 .venv/
 venv/
 env/
 __pycache__/
 *.pyc
+
+# Local Database & Storage
+*.db
+data/evidence/
 
 # Node / Frontend
 frontend/node_modules/

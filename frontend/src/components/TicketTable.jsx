@@ -1,7 +1,51 @@
 import React from 'react';
-import { Eye, AlertTriangle, CheckCircle, ExternalLink, ThumbsUp, Filter } from 'lucide-react';
+import { Eye, AlertTriangle, CheckCircle, ExternalLink, ThumbsUp, Filter, Clock } from 'lucide-react';
 
 export default function TicketTable({ tickets, totalCount, activeTab, setActiveTab, onSelectTicket, onEscalateTicket }) {
+  const renderSlaCountdown = (ticket) => {
+    if (ticket.status === 'RESOLVED') {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
+          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Solved in SLA
+        </span>
+      );
+    }
+    if (ticket.status === 'ESCALATED_ZONAL') {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-red-700 bg-red-50 border border-red-300 px-2.5 py-1 rounded-md">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> 0h 00m (Breached)
+        </span>
+      );
+    }
+
+    const now = Date.now() / 1000;
+    const remainingSec = ticket.sla_deadline_timestamp 
+      ? Math.max(0, ticket.sla_deadline_timestamp - now) 
+      : (ticket.sla_remaining_seconds || 0);
+    const hours = Math.floor(remainingSec / 3600);
+    const minutes = Math.floor((remainingSec % 3600) / 60);
+
+    if (remainingSec <= 0) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono font-bold text-xs text-red-700 bg-red-100 border border-red-300 px-2.5 py-1 rounded-md animate-pulse">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> Expired (Escalating)
+        </span>
+      );
+    }
+
+    const isUrgent = hours < 12;
+    return (
+      <span className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-md border ${
+        isUrgent 
+          ? 'bg-amber-50 text-amber-900 border-amber-300' 
+          : 'bg-slate-100 text-slate-800 border-slate-300'
+      }`}>
+        <Clock className="w-3.5 h-3.5 text-slate-600" />
+        {hours}h {minutes}m left
+      </span>
+    );
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'ESCALATED_ZONAL':
@@ -116,6 +160,7 @@ export default function TicketTable({ tickets, totalCount, activeTab, setActiveT
               <th className="py-3 px-4 font-bold">Priority / Votes</th>
               <th className="py-3 px-4 font-bold">GPS Location</th>
               <th className="py-3 px-4 font-bold">Status</th>
+              <th className="py-3 px-4 font-bold">48h SLA Countdown</th>
               <th className="py-3 px-4 font-bold">Assigned Contractor</th>
               <th className="py-3 px-4 font-bold">Proof Status</th>
               <th className="py-3 px-4 font-bold text-right">Actions</th>
@@ -124,7 +169,7 @@ export default function TicketTable({ tickets, totalCount, activeTab, setActiveT
           <tbody className="divide-y divide-slate-200 text-sm">
             {tickets.length === 0 ? (
               <tr>
-                <td colSpan="8" className="py-12 text-center text-slate-500 font-medium text-sm">
+                <td colSpan="9" className="py-12 text-center text-slate-500 font-medium text-sm">
                   No {activeTab !== 'workspace' ? activeTab.toUpperCase() : ''} issues recorded yet.
                   <span className="block text-xs text-slate-400 mt-1">
                     Upload a video or photo to run YOLO26m analysis for this category!
@@ -136,7 +181,7 @@ export default function TicketTable({ tickets, totalCount, activeTab, setActiveT
                 const lat = ticket.location?.latitude;
                 const lon = ticket.location?.longitude;
                 const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-                const hasProof = Boolean(ticket.proof_image_bytes);
+                const hasProof = Boolean(ticket.proof_image_filename || ticket.proof_image_url || ticket.proof_image_bytes);
 
                 return (
                   <tr key={ticket.id} className="hover:bg-slate-50 transition">
@@ -167,6 +212,7 @@ export default function TicketTable({ tickets, totalCount, activeTab, setActiveT
                       </a>
                     </td>
                     <td className="py-3.5 px-4">{getStatusBadge(ticket.status)}</td>
+                    <td className="py-3.5 px-4">{renderSlaCountdown(ticket)}</td>
                     <td className="py-3.5 px-4 font-mono text-slate-700 text-xs truncate max-w-[160px]">
                       {ticket.contractor_email || 'abhimanu6729@gmail.com'}
                     </td>

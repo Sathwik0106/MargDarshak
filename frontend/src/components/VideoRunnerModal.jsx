@@ -44,13 +44,44 @@ export default function VideoRunnerModal({ isOpen, onClose, onSimulateSampleDete
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error(`Server returned error status: ${res.status}`);
-      }
+      if (res.status === 202) {
+        const acceptData = await res.json();
+        const jobId = acceptData.job_id;
+        setStatusMessage(`Upload accepted (202)! Video processing running in background worker (${jobId})...`);
 
-      const data = await res.json();
-      setAnalysisResult(data);
-      setStatusMessage('AI analysis complete! Defect tickets & emails dispatched.');
+        let isDone = false;
+        let attempts = 0;
+        while (!isDone && attempts < 60) {
+          await new Promise((r) => setTimeout(r, 2000));
+          attempts++;
+          try {
+            const jobRes = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+            if (jobRes.ok) {
+              const jobData = await jobRes.json();
+              if (jobData.status === 'completed') {
+                isDone = true;
+                setStatusMessage('YOLO26m Video Analysis Complete! Defects saved to spatial database.');
+                setAnalysisResult({
+                  status: 'success',
+                  type: 'video',
+                  message: 'Video frames processed with 7m spatial deduplication & tickets generated.',
+                });
+              } else if (jobData.status === 'failed') {
+                isDone = true;
+                throw new Error(jobData.error || 'Video inference failed');
+              } else {
+                setStatusMessage(`Processing video in background (Job ${jobId})...`);
+              }
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      } else {
+        const data = await res.json();
+        setAnalysisResult(data);
+        setStatusMessage('AI analysis complete! Defect tickets & emails dispatched.');
+      }
     } catch (err) {
       console.error(err);
       setStatusMessage(`Upload failed: ${err.message}`);

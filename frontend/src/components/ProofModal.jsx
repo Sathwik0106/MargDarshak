@@ -6,12 +6,17 @@ export default function ProofModal({ ticket, onClose, onEscalate }) {
 
   const lat = ticket.location?.latitude;
   const lon = ticket.location?.longitude;
-  const beforeImgSrc = ticket.image_bytes
-    ? `data:image/jpeg;base64,${ticket.image_bytes}`
-    : null;
-  const afterImgSrc = ticket.proof_image_bytes
-    ? `data:image/jpeg;base64,${ticket.proof_image_bytes}`
-    : null;
+  const getImgSrc = (imgProp, urlProp) => {
+    if (urlProp) return urlProp;
+    if (!imgProp) return null;
+    if (imgProp.startsWith('http://') || imgProp.startsWith('https://') || imgProp.startsWith('/')) {
+      return imgProp;
+    }
+    return `data:image/jpeg;base64,${imgProp}`;
+  };
+
+  const beforeImgSrc = getImgSrc(ticket.image_bytes, ticket.evidence_image_url);
+  const afterImgSrc = getImgSrc(ticket.proof_image_bytes, ticket.proof_image_url);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">

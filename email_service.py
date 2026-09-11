@@ -1,27 +1,36 @@
 import base64
 import os
 import smtplib
+from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from typing import Optional, Dict, Any
 
-# Email Configuration
+from config import (
+    SENDER_EMAIL,
+    SENDER_PASSWORD,
+    CONTRACTOR_EMAIL,
+    ESCALATION_EMAIL,
+    SERVER_BASE_URL,
+    EVIDENCE_DIR,
+)
+
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "sathwik661119@gmail.com"
-SENDER_PASSWORD = "faprjoapfjilhlad"
-
-CONTRACTOR_EMAIL = "abhimanu6729@gmail.com"
-ESCALATION_EMAIL = "lingarajusaikumar@gmail.com"
-SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://localhost:8000")
 
 
-def send_email(to_email: str, subject: str, html_body: str, image_bytes: bytes = None):
+def send_email(to_email: str, subject: str, html_body: str, image_bytes: Optional[bytes] = None) -> bool:
     """
-    Sends an HTML email with optional inline/attached evidence image via Gmail SMTP.
+    Sends an HTML email with optional inline/attached defect image via Gmail SMTP.
+    Configured securely through environment variables.
     """
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        print("[!] SENDER_EMAIL or SENDER_PASSWORD not configured. Skipping email dispatch.")
+        return False
+
     msg = MIMEMultipart("related")
-    msg["From"] = f"MargDarshak Control Center <{SENDER_EMAIL}>"
+    msg["From"] = f"MargDarshak Autonomous Sensing <{SENDER_EMAIL}>"
     msg["To"] = to_email
     msg["Subject"] = subject
 
@@ -51,181 +60,203 @@ def send_email(to_email: str, subject: str, html_body: str, image_bytes: bytes =
         return False
 
 
-def notify_ticket_assigned(ticket: dict):
+def _extract_ticket_image_bytes(ticket: Dict[str, Any]) -> Optional[bytes]:
+    """Helper to extract image bytes from disk file or base64 data."""
+    filename = ticket.get("evidence_image_filename")
+    if filename:
+        file_path = EVIDENCE_DIR / filename
+        if file_path.exists():
+            try:
+                return file_path.read_bytes()
+            except Exception:
+                pass
+
+    raw_data = ticket.get("image_bytes")
+    if raw_data and isinstance(raw_data, str) and not raw_data.startswith("http"):
+        try:
+            b64_str = raw_data.split(",", 1)[1] if "," in raw_data else raw_data
+            return base64.b64decode(b64_str)
+        except Exception:
+            pass
+    return None
+
+
+def notify_ticket_assigned(ticket: Dict[str, Any]) -> bool:
     """
-    Sends notification to the Ward Contractor with TWO distinct buttons:
-    1. Update Status & Plan of Action
-    2. Mark as Solved & Upload Proof
+    Sends notification to the Ward Contractor with TWO distinct action buttons:
+    1. Update Status & Plan of Action (/contractor/plan/{ticket_id})
+    2. Mark as Solved & Upload Proof (/contractor/resolve/{ticket_id})
     """
     ticket_id = ticket["id"]
     problem = ticket["problem"].capitalize()
-    votes = ticket["votes"]
+    votes = ticket.get("votes", 1)
     lat = ticket["location"]["latitude"]
     lon = ticket["location"]["longitude"]
     maps_url = f"https://www.google.com/maps?q={lat},{lon}"
 
-    # Action URLs for the two buttons
     plan_url = f"{SERVER_BASE_URL}/contractor/plan/{ticket_id}"
     resolve_url = f"{SERVER_BASE_URL}/contractor/resolve/{ticket_id}"
 
-    subject = f"[MargDarshak Alert] New Road Issue Assigned: {problem} (#{ticket_id}) - {votes} Vote(s)"
+    subject = f"[MargDarshak Alert] New Road Defect Assigned: {problem} (#{ticket_id}) - {votes} Vote(s)"
 
     html_body = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333;">
-        <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; border: 1px solid #e0e0e0; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-            <div style="background-color: #1a73e8; color: white; padding: 20px; text-align: center;">
-                <h2 style="margin: 0; font-size: 22px;">City Road Intelligence Alert</h2>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">MargDarshak Mobile Fleet Sensing System</p>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }}
+            .container {{ max-width: 620px; margin: auto; background: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }}
+            .header {{ background: #0b2545; color: #ffffff; padding: 24px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }}
+            .header p {{ margin: 6px 0 0 0; font-size: 13px; color: #90caf9; }}
+            .content {{ padding: 28px; }}
+            .badge-priority {{ display: inline-block; background: #fee2e2; color: #b91c1c; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #fca5a5; }}
+            .info-box {{ width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }}
+            .info-box td {{ padding: 10px 14px; font-size: 14px; border-bottom: 1px solid #e2e8f0; }}
+            .info-box td.label {{ font-weight: 600; color: #64748b; width: 35%; }}
+            .info-box td.val {{ font-weight: 600; color: #0f172a; }}
+            .btn-table {{ width: 100%; margin: 25px 0 10px 0; }}
+            .btn-action {{ display: block; text-align: center; padding: 14px 18px; border-radius: 8px; font-size: 14px; font-weight: 700; text-decoration: none; color: #ffffff !important; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+            .btn-blue {{ background-color: #1a73e8; }}
+            .btn-green {{ background-color: #16a34a; }}
+            .countdown-note {{ background-color: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px; border-radius: 6px; font-size: 13px; margin: 18px 0; }}
+            .footer {{ background: #f1f5f9; padding: 14px; text-align: center; font-size: 12px; color: #64748b; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>MARGDARSHAK MUNICIPAL DEFECT DISPATCH</h1>
+                <p>Automated Hyderabad City Transit Sensing &bull; Ticket #{ticket_id}</p>
             </div>
-            <div style="padding: 24px;">
-                <p style="font-size: 16px;">Hello <b>Ward Contractor</b>,</p>
-                <p>A road defect has been detected by transit bus cameras and assigned to your jurisdiction:</p>
+            <div class="content">
+                <p>Hello Ward Maintenance Contractor (<b>{CONTRACTOR_EMAIL}</b>),</p>
+                <p>A new municipal roadway defect was detected and autonomously verified by fleet video sensors:</p>
 
-                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-                    <tr>
-                        <td style="padding: 8px 12px; background: #f8f9fa; font-weight: bold; width: 35%;">Ticket ID:</td>
-                        <td style="padding: 8px 12px; background: #f8f9fa;"><b>#{ticket_id}</b></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; font-weight: bold;">Issue / Defect:</td>
-                        <td style="padding: 8px 12px; color: #d93025; font-weight: bold;">{problem}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; background: #f8f9fa; font-weight: bold;">Priority / Votes:</td>
-                        <td style="padding: 8px 12px; background: #f8f9fa;"><span style="background: #e8f0fe; color: #1a73e8; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{votes} Citizen/Fleet Vote(s)</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; font-weight: bold;">Location:</td>
-                        <td style="padding: 8px 12px;">{lat:.5f}, {lon:.5f} 
-                            (<a href="{maps_url}" target="_blank" style="color: #1a73e8; font-weight: bold;">View on Google Maps</a>)
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; background: #f8f9fa; font-weight: bold;">SLA Deadline:</td>
-                        <td style="padding: 8px 12px; background: #f8f9fa; color: #e37400; font-weight: bold;">Action Required within 24 Hours</td>
-                    </tr>
+                <div style="margin: 12px 0;">
+                    <span class="badge-priority">{votes} Detection Vote(s) - High Citizen &amp; Transit Impact</span>
+                </div>
+
+                <table class="info-box">
+                    <tr><td class="label">Ticket ID:</td><td class="val">#{ticket_id}</td></tr>
+                    <tr><td class="label">Defect Type:</td><td class="val" style="color: #d93025; font-size: 16px;">{problem}</td></tr>
+                    <tr><td class="label">GPS Coordinates:</td><td class="val">{lat:.5f}, {lon:.5f}</td></tr>
+                    <tr><td class="label">Map Route:</td><td class="val"><a href="{maps_url}" target="_blank" style="color: #1a73e8; font-weight: bold;">Open Coordinates in Google Maps</a></td></tr>
+                    <tr><td class="label">Current Status:</td><td class="val"><span style="color: #1a73e8;">ASSIGNED TO WARD</span></td></tr>
                 </table>
 
+                <div class="countdown-note">
+                    ⏱ <b>Strict 48-Hour SLA Notice:</b> You have a <b>48-hour countdown</b> to begin work or resolve this ticket. If unaddressed when the countdown reaches zero, this ticket is automatically escalated to Zonal Administration (<b>{ESCALATION_EMAIL}</b>).
+                </div>
+
                 <div style="margin: 20px 0; text-align: center;">
-                    <p style="font-weight: bold; margin-bottom: 8px; text-align: left;">Camera Evidence Snapshot (Before):</p>
-                    <img src="cid:defect_evidence" alt="Defect Evidence" style="max-width: 100%; border-radius: 6px; border: 1px solid #ccc;" />
+                    <p style="font-weight: 600; margin-bottom: 8px; text-align: left; font-size: 13px; color: #475569;">Fleet Camera Evidence:</p>
+                    <img src="cid:defect_evidence" alt="Camera Defect Evidence" style="max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1;" />
                 </div>
 
-                <div style="background-color: #fef7e0; border-left: 4px solid #f9ab00; padding: 12px; margin: 20px 0; font-size: 13px;">
-                    <b>Notice:</b> Please respond within 24 hours to prevent automated escalation to <b>Zonal Higher Authority</b> ({ESCALATION_EMAIL}).
-                </div>
-
-                <!-- Two Distinct Action Buttons -->
-                <div style="text-align: center; margin-top: 25px;">
-                    <a href="{plan_url}" style="background-color: #1a73e8; color: white; padding: 12px 18px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin: 6px;">
-                        📝 Update Status & Plan of Action
-                    </a>
-                    <a href="{resolve_url}" style="background-color: #34a853; color: white; padding: 12px 18px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin: 6px;">
-                        ✅ Mark as Solved & Upload Proof
-                    </a>
-                </div>
+                <table class="btn-table" cellpadding="0" cellspacing="10">
+                    <tr>
+                        <td width="50%">
+                            <a href="{plan_url}" target="_blank" class="btn-action btn-blue">
+                                📝 Update Status &amp; Action Plan
+                            </a>
+                        </td>
+                        <td width="50%">
+                            <a href="{resolve_url}" target="_blank" class="btn-action btn-green">
+                                ✅ Mark as Solved &amp; Upload Proof
+                            </a>
+                        </td>
+                    </tr>
+                </table>
             </div>
-            <div style="background-color: #f8f9fa; padding: 12px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee;">
-                MargDarshak Autonomous City Sensing Platform &bull; Automated Dispatch
+            <div class="footer">
+                MargDarshak Central Intelligence Platform &bull; Hyderabad Municipal Governance
             </div>
         </div>
     </body>
     </html>
     """
 
-    img_bytes = None
-    if ticket.get("image_bytes"):
-        try:
-            b64_str = ticket["image_bytes"]
-            if "," in b64_str:
-                b64_str = b64_str.split(",", 1)[1]
-            img_bytes = base64.b64decode(b64_str)
-        except Exception:
-            pass
-
+    img_bytes = _extract_ticket_image_bytes(ticket)
     return send_email(CONTRACTOR_EMAIL, subject, html_body, image_bytes=img_bytes)
 
 
-def notify_ticket_escalated(ticket: dict):
+def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
     """
-    Sends escalation notification to Higher Authority (lingarajusaikumar@gmail.com).
+    Sends SLA Escalation Alert to Zonal Administration (lingarajusaikumar@gmail.com).
+    Triggered automatically when the 48-hour SLA countdown reaches 0 or contractor fails to respond.
     """
     ticket_id = ticket["id"]
     problem = ticket["problem"].capitalize()
-    votes = ticket["votes"]
+    votes = ticket.get("votes", 1)
     lat = ticket["location"]["latitude"]
     lon = ticket["location"]["longitude"]
     maps_url = f"https://www.google.com/maps?q={lat},{lon}"
 
-    subject = f"[URGENT ESCALATION] SLA Breach: Unresolved {problem} (#{ticket_id}) - {votes} Vote(s)"
+    subject = f"[URGENT 48-HR SLA BREACH] Escalated Defect: {problem} (#{ticket_id}) - {votes} Vote(s)"
 
     html_body = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial, sans-serif; background-color: #fbeae5; padding: 20px; color: #333;">
-        <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 8px; border: 2px solid #d93025; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-            <div style="background-color: #d93025; color: white; padding: 20px; text-align: center;">
-                <h2 style="margin: 0; font-size: 22px;">SLA ESCALATION ALERT</h2>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">Zonal Administration Immediate Attention Required</p>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #fef2f2; margin: 0; padding: 20px; color: #333; }}
+            .container {{ max-width: 620px; margin: auto; background: #ffffff; border-radius: 10px; overflow: hidden; border: 2px solid #ef4444; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.15); }}
+            .header {{ background: #dc2626; color: #ffffff; padding: 24px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }}
+            .content {{ padding: 28px; }}
+            .alert-banner {{ background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 14px; margin: 15px 0; font-size: 14px; color: #991b1b; }}
+            .info-box {{ width: 100%; border-collapse: collapse; margin: 20px 0; background: #fff5f5; border-radius: 8px; border: 1px solid #fecaca; }}
+            .info-box td {{ padding: 10px 14px; font-size: 14px; border-bottom: 1px solid #fecaca; }}
+            .info-box td.label {{ font-weight: 600; color: #7f1d1d; width: 35%; }}
+            .info-box td.val {{ font-weight: 600; color: #111827; }}
+            .footer {{ background: #f8fafc; padding: 14px; text-align: center; font-size: 12px; color: #64748b; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>⚠️ 48-HOUR SLA ESCALATION NOTICE</h1>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #fecaca;">Zonal Higher Authority Immediate Intervention Required</p>
             </div>
-            <div style="padding: 24px;">
-                <p style="font-size: 16px;">Hello <b>Higher Authority / Zonal Officer</b>,</p>
-                <p>The designated Ward Contractor (<b>{CONTRACTOR_EMAIL}</b>) has <b>failed to respond or take action</b> within the mandatory 24-hour SLA window for the following issue:</p>
+            <div class="content">
+                <p>Hello <b>Higher Authority / Zonal Officer</b>,</p>
+                <div class="alert-banner">
+                    <b>Notice:</b> The mandatory <b>48-hour SLA countdown has expired</b> for Ticket <b>#{ticket_id}</b>. The assigned contractor (<b>{CONTRACTOR_EMAIL}</b>) has not resolved the defect.
+                </div>
 
-                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-                    <tr>
-                        <td style="padding: 8px 12px; background: #fdf2f2; font-weight: bold; width: 35%;">Ticket ID:</td>
-                        <td style="padding: 8px 12px; background: #fdf2f2;"><b>#{ticket_id}</b></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; font-weight: bold;">Issue / Defect:</td>
-                        <td style="padding: 8px 12px; color: #d93025; font-weight: bold;">{problem}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; background: #fdf2f2; font-weight: bold;">Citizen/Fleet Priority:</td>
-                        <td style="padding: 8px 12px; background: #fdf2f2;"><span style="background: #fce8e6; color: #c5221f; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{votes} Vote(s) (Critical Priority)</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; font-weight: bold;">Defect Location:</td>
-                        <td style="padding: 8px 12px;">{lat:.5f}, {lon:.5f} 
-                            (<a href="{maps_url}" target="_blank" style="color: #1a73e8; font-weight: bold;">Open Coordinates in Maps</a>)
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; background: #fdf2f2; font-weight: bold;">Assigned Contractor:</td>
-                        <td style="padding: 8px 12px; background: #fdf2f2;">{CONTRACTOR_EMAIL} (Non-Responsive)</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 12px; font-weight: bold;">Current Status:</td>
-                        <td style="padding: 8px 12px; color: #d93025; font-weight: bold;">ESCALATED TO ZONAL LEVEL</td>
-                    </tr>
+                <table class="info-box">
+                    <tr><td class="label">Ticket ID:</td><td class="val">#{ticket_id}</td></tr>
+                    <tr><td class="label">Issue / Defect:</td><td class="val" style="color: #dc2626; font-size: 16px;">{problem}</td></tr>
+                    <tr><td class="label">Citizen/Fleet Priority:</td><td class="val"><span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{votes} Detection Vote(s) (Critical)</span></td></tr>
+                    <tr><td class="label">Defect Location:</td><td class="val">{lat:.5f}, {lon:.5f} (<a href="{maps_url}" target="_blank" style="color: #2563eb; font-weight: bold;">Google Maps</a>)</td></tr>
+                    <tr><td class="label">Assigned Contractor:</td><td class="val">{CONTRACTOR_EMAIL} (Non-Responsive)</td></tr>
+                    <tr><td class="label">Governance Status:</td><td class="val" style="color: #dc2626; font-weight: bold;">ESCALATED_ZONAL</td></tr>
                 </table>
 
                 <div style="margin: 20px 0; text-align: center;">
-                    <p style="font-weight: bold; margin-bottom: 8px; text-align: left;">Camera Evidence Snapshot:</p>
-                    <img src="cid:defect_evidence" alt="Defect Evidence" style="max-width: 100%; border-radius: 6px; border: 1px solid #ccc;" />
+                    <p style="font-weight: 600; margin-bottom: 8px; text-align: left; font-size: 13px; color: #475569;">Fleet Camera Evidence Snapshot:</p>
+                    <img src="cid:defect_evidence" alt="Defect Evidence" style="max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1;" />
                 </div>
 
-                <div style="background-color: #fdf2f2; border-left: 4px solid #d93025; padding: 12px; margin: 20px 0; font-size: 13px;">
-                    <b>Action Required:</b> Please reassign this task or summon contractor <b>{CONTRACTOR_EMAIL}</b> for non-compliance.
+                <div style="background-color: #f1f5f9; padding: 14px; border-radius: 8px; font-size: 13px; color: #334155;">
+                    <b>Executive Action Options:</b>
+                    <ul style="margin: 6px 0 0 0; padding-left: 20px;">
+                        <li>Reassign to Emergency Flying Repair Squad</li>
+                        <li>Impose non-performance penalty on Ward Contractor {CONTRACTOR_EMAIL}</li>
+                        <li>Dispatch municipal supervisor for physical on-site audit</li>
+                    </ul>
                 </div>
             </div>
-            <div style="background-color: #f8f9fa; padding: 12px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee;">
-                MargDarshak Autonomous City Sensing Platform &bull; Automated SLA Escalation
+            <div class="footer">
+                MargDarshak Autonomous City Sensing Platform &bull; Automated SLA Governance
             </div>
         </div>
     </body>
     </html>
     """
 
-    img_bytes = None
-    if ticket.get("image_bytes"):
-        try:
-            b64_str = ticket["image_bytes"]
-            if "," in b64_str:
-                b64_str = b64_str.split(",", 1)[1]
-            img_bytes = base64.b64decode(b64_str)
-        except Exception:
-            pass
-
+    img_bytes = _extract_ticket_image_bytes(ticket)
     return send_email(ESCALATION_EMAIL, subject, html_body, image_bytes=img_bytes)
