@@ -1,0 +1,15 @@
+# MargDarshak - City Road Intelligence Platform
+# Core Backend & API
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.6.0
+python-multipart>=0.0.9
+
+# Edge AI & Computer Vision
+ultralytics>=8.1.0
+opencv-python>=4.9.0
+torch>=2.2.0
+torchvision>=0.17.0
+
+# Optional IoT Ingestion Ready
+paho-mqtt>=2.0.0

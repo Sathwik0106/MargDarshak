@@ -1,0 +1,19 @@
+# Python Virtual Environment
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# YOLO weights
+*.pt
