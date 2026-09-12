@@ -204,18 +204,30 @@ export default function Sidebar({
             </div>
             
             <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-2">
-              <div className="space-y-1 text-slate-600">
+              <div className="space-y-1.5 text-slate-600">
                 <div className="flex justify-between items-baseline">
-                  <span className="text-slate-400 text-[11px]">Circle 12 EE:</span>
+                  <span className="text-slate-400 text-[11px]">Medchal DC:</span>
+                  <span className="font-semibold text-slate-800 text-[11px]">N. Sudhamsh</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-slate-400 text-[11px]">Kompally DC:</span>
+                  <span className="font-semibold text-slate-800 text-[11px]">D. Lavanya</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-slate-400 text-[11px]">Miyapur DC:</span>
+                  <span className="font-semibold text-slate-800 text-[11px]">G. Srinivas</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-slate-400 text-[11px]">Kukatpally DC:</span>
                   <span className="font-semibold text-slate-800 text-[11px]">G. Anjaneyulu</span>
                 </div>
                 <div className="flex justify-between items-baseline">
-                  <span className="text-slate-400 text-[11px]">Zonal Comm:</span>
-                  <span className="font-semibold text-slate-800 text-[11px]">Mayank Singh IAS</span>
+                  <span className="text-slate-400 text-[11px]">Patancheruvu DC:</span>
+                  <span className="font-semibold text-slate-800 text-[11px]">Jyoti Reddy</span>
                 </div>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-slate-400 text-[11px]">Helpline:</span>
-                  <span className="font-mono font-semibold text-slate-800 text-[11px]">155304</span>
+                <div className="flex justify-between items-baseline pt-1 border-t border-slate-100">
+                  <span className="text-slate-400 text-[11px]">Zonal Comm:</span>
+                  <span className="font-semibold text-slate-800 text-[11px]">Pinkeshkumar IAS</span>
                 </div>
               </div>
             </div>

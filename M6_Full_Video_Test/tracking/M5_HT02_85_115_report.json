@@ -1,0 +1,57 @@
+{
+  "experiment": "M5 High-FPS BoT-SORT Tracking",
+  "video": "20260911_085042.mp4",
+  "segment": {
+    "start_sec": 85.0,
+    "end_sec": 115.867,
+    "duration_sec": 30.867000000000004
+  },
+  "video_properties": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 29.98256339313704,
+    "total_frames": 3474
+  },
+  "tracking_configuration": {
+    "target_fps": 10.0,
+    "actual_sample_fps": 9.994187797712346,
+    "frame_step": 3,
+    "confidence": 0.25,
+    "imgsz": 640,
+    "tracker": "BoT-SORT",
+    "track_buffer": 60,
+    "match_thresh": 0.8,
+    "gmc_method": "sparseOptFlow"
+  },
+  "processing": {
+    "frames_processed": 309,
+    "sampled_frames": 309,
+    "runtime_sec": 133.85631847381592,
+    "runtime_min": 2.2309386412302654
+  },
+  "detections": {
+    "total": 3360,
+    "with_valid_track_id": 3360,
+    "without_track_id": 0
+  },
+  "tracks": {
+    "unique_track_ids": 160,
+    "median_lifetime_sec": 1.200697869890618,
+    "mean_lifetime_sec": 2.2800752258443673,
+    "max_lifetime_sec": 18.81093329495299,
+    "max_detections_per_track": 189,
+    "tracks_ge_2_detections": 150,
+    "tracks_ge_5_detections": 112,
+    "tracks_ge_10_detections": 86,
+    "tracks_ge_20_detections": 47,
+    "tracks_ge_50_detections": 17,
+    "tracks_ge_100_detections": 7
+  },
+  "verdict": "TRACKING_PROMISING",
+  "important_note": "Track IDs represent tracker trajectories, not guaranteed unique physical vehicles. This experiment is a tracking diagnostic, not a final congestion measurement.",
+  "outputs": {
+    "tracks_csv": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_HT02_85_115_tracks.csv",
+    "summary_csv": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_HT02_85_115_track_summary.csv",
+    "report_json": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_HT02_85_115_report.json"
+  }
+}

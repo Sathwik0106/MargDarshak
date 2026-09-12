@@ -1,0 +1,11 @@
+metric,value
+Video 1 duration_sec,115.86734444444444
+Video 2 duration_sec,554.5627888888889
+Combined video duration_sec,670.4301333333334
+GPS points,676
+GPS gaps > 5 sec,2
+Video 1 start IST,2026-09-11 08:50:42+05:30
+Video 1 end IST,2026-09-11 08:52:37.867344+05:30
+Video 2 start IST,2026-09-11 08:56:46+05:30
+Video 2 end IST,2026-09-11 09:06:00.562789+05:30
+Synchronization status,STRONG_ALIGNMENT_CANDIDATE

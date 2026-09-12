@@ -3,7 +3,7 @@ import { ArrowLeft, Wrench, AlertTriangle, CheckCircle2, ThumbsUp, Camera } from
 import OpenStreetMap from '../components/OpenStreetMap';
 import TicketTable from '../components/TicketTable';
 
-export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscalateTicket, onVote }) {
+export default function RoadInfraPage({ tickets, portalMode = 'user', onBack, onSelectTicket, onEscalateTicket, onVote }) {
   const roadTickets = tickets.filter((t) => {
     const p = (t.problem || '').toLowerCase();
     return !['traffic', 'vehicle', 'car', 'bus', 'truck', 'pedestrian', 'person', 'school'].some(k => p.includes(k));
@@ -91,6 +91,7 @@ export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscal
         onSelectTicket={onSelectTicket}
         onEscalateTicket={onEscalateTicket}
         onVote={onVote}
+        portalMode={portalMode}
       />
     </div>
   );

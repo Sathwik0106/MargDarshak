@@ -110,32 +110,56 @@ class TicketManager:
 
     def _assign_municipal_officers(self, db: Session, lat: float, lon: float, problem: str) -> Dict[str, str]:
         """
-        Dynamically matches defect GPS coordinates and problem category to real GHMC officers from the database.
+        Dynamically matches defect GPS coordinates and problem category to real CMC officers from the database.
         """
-        if lat > 17.51:
+        # Route progresses South-East (Medchal mandal) -> North-West (Patancheruvu / Miyapur corridor)
+        # 1. Medchal Circle (South-East start in Medchal mandal, lat < 17.575)
+        if lat < 17.575:
+            circle_name = "Medchal"
+            zone_name = "Quthbullapur"
+            default_officer = ("N.Sudhamsh", "DEPUTY COMMISSIONER", "dcmedchalghmc@gmail.com", "9963854999")
+            zonal_comm = ("Sri Parmar Pinkeshkumar Lalitkumar, IAS", "Zonal Commissioner (Quthbullapur)", "zcquthbullapur.ghmc@gmail.com")
+        # 2. Kompally Circle (Central corridor along NH44 / Kompally, 17.575 <= lat < 17.586)
+        elif lat < 17.586:
             circle_name = "Kompally"
             zone_name = "Quthbullapur"
             default_officer = ("D.Lavanya", "DEPUTY COMMISSIONER", "dckompallyghmc@gmail.com", "8639601877")
             zonal_comm = ("Sri Parmar Pinkeshkumar Lalitkumar, IAS", "Zonal Commissioner (Quthbullapur)", "zcquthbullapur.ghmc@gmail.com")
-        elif lon < 78.42:
+        # 3. Miyapur Circle (North-East arterial turn towards Miyapur corridor, lon >= 78.467)
+        elif lon >= 78.467:
             circle_name = "Miyapur"
             zone_name = "Serilingampally"
             default_officer = ("G.SRINIVAS", "DEPUTY COMMISSIONER", "dc12.ghmc@gmail.com", "8985046462")
             zonal_comm = ("Sri Narayan Amit Malempati IAS", "Zonal Commissioner (Serilingampally)", "zc.west.ghmc@gmail.com")
-        else:
+        # 4. Kukatpally Circle (East-Central connector, 78.458 <= lon < 78.467)
+        elif lon >= 78.458:
             circle_name = "Kukatpally"
             zone_name = "Kukatpally"
             default_officer = ("G Anjaneyulu", "DEPUTY COMMISSIONER", "dc14b.ghmc@gmail.com", "8008103667")
             zonal_comm = ("Sri Mayank Singh IAS", "Zonal Commissioner (Kukatpally)", "zckz.ghmc@gmail.com")
+        # 5. Patancheruvu Circle (Western industrial terminus, lon < 78.458)
+        else:
+            circle_name = "Patancheruvu"
+            zone_name = "Serilingampally"
+            default_officer = ("Jyoti Reddy", "DEPUTY COMMISSIONER", "dc13.ghmc@gmail.com", "7337302638")
+            zonal_comm = ("Sri Narayan Amit Malempati IAS", "Zonal Commissioner (Serilingampally)", "zc.west.ghmc@gmail.com")
 
-        # Try to match specific circle from database
+        # Match specific officer directly from database if available
         try:
             from database import OfficerModel
             matched = db.query(OfficerModel).filter(
-                OfficerModel.circle.ilike(f"%{circle_name}%")
+                OfficerModel.circle.ilike(f"%{circle_name}%"),
+                OfficerModel.category_wing == "DEPUTY COMMISSIONER"
             ).first()
             if matched and matched.email_id:
                 default_officer = (matched.name, matched.designation, matched.email_id, matched.contact_number or default_officer[3])
+
+            matched_zc = db.query(OfficerModel).filter(
+                OfficerModel.zone.ilike(f"%{zone_name}%"),
+                OfficerModel.category_wing == "ZONAL COMMISSIONER"
+            ).first()
+            if matched_zc and matched_zc.email_id:
+                zonal_comm = (matched_zc.name, matched_zc.designation or f"Zonal Commissioner ({zone_name})", matched_zc.email_id)
         except Exception:
             pass
 

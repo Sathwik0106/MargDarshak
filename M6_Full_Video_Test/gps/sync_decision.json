@@ -1,0 +1,16 @@
+{
+  "filename_time_assumption": "Video filenames YYYYMMDD_HHMMSS are treated as local Asia/Kolkata capture start times.",
+  "combined_video_duration_sec": 670.4301333333334,
+  "gps_duration_sec": 1001.0,
+  "video_count": 2,
+  "gps_points": 676,
+  "gps_gap_count_over_5_sec": 2,
+  "checks": {
+    "video1_start_vs_first_gps_gap_end_sec": 1.0,
+    "video1_end_vs_second_gps_gap_start_sec": 1.1326559999999999,
+    "video2_start_vs_second_gps_gap_end_sec": 0.0,
+    "video_combined_start_within_gpx": true,
+    "video_combined_end_within_gpx": true
+  },
+  "status": "STRONG_ALIGNMENT_CANDIDATE"
+}

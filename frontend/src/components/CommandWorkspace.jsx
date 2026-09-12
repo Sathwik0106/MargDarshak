@@ -47,12 +47,12 @@ export default function CommandWorkspace({
   // Municipal Circle Officers Turnaround Scorecard Data
   const officerScorecard = [
     {
-      name: 'G. Anjaneyulu',
-      role: 'Executive Engineer (EE)',
-      circle: 'Circle 12 (Khairatabad / Jubilee Hills)',
-      tasks: 34,
-      onTimeRate: '94.8%',
-      avgResponse: '4.2h',
+      name: 'N. Sudhamsh',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Medchal Circle (Quthbullapur)',
+      tasks: tickets.filter(t => (t.assigned_officer_name || '').includes('Sudhamsh') || (t.assigned_circle || '').includes('Medchal')).length || 12,
+      onTimeRate: '97.1%',
+      avgResponse: '3.9h',
       status: 'Compliant',
       statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
     },
@@ -60,31 +60,41 @@ export default function CommandWorkspace({
       name: 'D. Lavanya',
       role: 'Deputy Commissioner (DC)',
       circle: 'Kompally Circle (Quthbullapur)',
-      tasks: 28,
-      onTimeRate: '88.5%',
-      avgResponse: '6.1h',
-      status: 'Under Review',
-      statusColor: 'text-amber-800 bg-amber-50 border-amber-200'
-    },
-    {
-      name: 'Md. Saber Ali',
-      role: 'Deputy Commissioner (DC)',
-      circle: 'Nizampet Circle (Kukatpally)',
-      tasks: 22,
-      onTimeRate: '91.2%',
-      avgResponse: '5.4h',
+      tasks: tickets.filter(t => (t.assigned_officer_name || '').includes('Lavanya') || (t.assigned_circle || '').includes('Kompally')).length || 13,
+      onTimeRate: '96.2%',
+      avgResponse: '4.8h',
       status: 'Compliant',
       statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
     },
     {
-      name: 'Sri Mayank Singh, IAS',
-      role: 'Zonal Commissioner',
-      circle: 'Central Zone (Judicial Oversight)',
-      tasks: 17,
-      onTimeRate: '98.2%',
-      avgResponse: '2.8h',
-      status: 'Exemplary',
-      statusColor: 'text-blue-800 bg-blue-50 border-blue-200'
+      name: 'G. SRINIVAS',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Miyapur Circle (Serilingampally)',
+      tasks: tickets.filter(t => (t.assigned_officer_name || '').includes('SRINIVAS') || (t.assigned_circle || '').includes('Miyapur')).length || 12,
+      onTimeRate: '95.4%',
+      avgResponse: '4.5h',
+      status: 'Compliant',
+      statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+    },
+    {
+      name: 'G. Anjaneyulu',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Kukatpally Circle (Kukatpally)',
+      tasks: tickets.filter(t => (t.assigned_officer_name || '').includes('Anjaneyulu') || (t.assigned_circle || '').includes('Kukatpally')).length || 9,
+      onTimeRate: '94.8%',
+      avgResponse: '4.2h',
+      status: 'Compliant',
+      statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+    },
+    {
+      name: 'Jyoti Reddy',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Patancheruvu Circle (Serilingampally)',
+      tasks: tickets.filter(t => (t.assigned_officer_name || '').includes('Jyoti') || (t.assigned_circle || '').includes('Patancheruvu')).length || 11,
+      onTimeRate: '93.6%',
+      avgResponse: '5.0h',
+      status: 'Compliant',
+      statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
     }
   ];
 

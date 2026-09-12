@@ -12,7 +12,8 @@ export default function TicketTable({
   setActiveTab, 
   onSelectTicket, 
   onEscalateTicket,
-  onVote 
+  onVote,
+  portalMode = 'admin'
 }) {
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -252,14 +253,14 @@ export default function TicketTable({
                     {/* Assigned Municipal Officer */}
                     <td className="py-3.5 px-4 text-slate-700">
                       <div className="font-semibold text-slate-800 truncate text-xs" title={ticket.assigned_officer_name}>
-                        {ticket.assigned_officer_name || 'G. Anjaneyulu (EE)'}
+                        {ticket.assigned_officer_name || 'Circle Officer'}
                       </div>
                       <div className="text-[11px] text-slate-500 font-mono truncate mt-0.5" title={ticket.assigned_officer_email || ticket.contractor_email}>
-                        {ticket.assigned_officer_email || ticket.contractor_email || 'ee-circle12@ghmc.gov.in'}
+                        {ticket.assigned_officer_email || ticket.contractor_email || 'circle-office@ghmc.gov.in'}
                       </div>
                       {ticket.assigned_officer_phone && (
                         <div className="text-[10px] text-slate-400 font-mono">
-                          Ph: {ticket.assigned_officer_phone}
+                          Ph: <a href={`tel:${ticket.assigned_officer_phone}`} className="text-blue-600 hover:text-blue-800 font-bold">{ticket.assigned_officer_phone}</a>
                         </div>
                       )}
                     </td>
@@ -289,7 +290,7 @@ export default function TicketTable({
                           <span>Inspect</span>
                         </button>
 
-                        {ticket.status !== 'RESOLVED' && ticket.status !== 'ESCALATED_ZONAL' && (
+                        {portalMode === 'admin' && ticket.status !== 'RESOLVED' && ticket.status !== 'ESCALATED_ZONAL' && (
                           <button
                             onClick={() => onEscalateTicket(ticket.id)}
                             className="p-1.5 text-red-700 hover:bg-red-50 border border-red-200 rounded transition"

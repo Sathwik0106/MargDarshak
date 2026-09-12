@@ -275,11 +275,11 @@ def ticket_to_dict(ticket: TicketModel) -> Dict[str, Any]:
     proof_url = f"{SERVER_BASE_URL}/api/images/{ticket.proof_image_filename}" if ticket.proof_image_filename else None
 
     # Assigned officer fallback for display
-    assigned_email = ticket.assigned_officer_email or ticket.contractor_email or "dc14b.ghmc@gmail.com"
-    assigned_name = ticket.assigned_officer_name or "G Anjaneyulu"
+    assigned_email = ticket.assigned_officer_email or ticket.contractor_email or "dcmedchalghmc@gmail.com"
+    assigned_name = ticket.assigned_officer_name or "N.Sudhamsh"
     assigned_desig = ticket.assigned_officer_designation or "DEPUTY COMMISSIONER"
-    escalation_email = ticket.escalation_officer_email or ticket.escalation_email or "zc.west.ghmc@gmail.com"
-    escalation_name = ticket.escalation_officer_name or "Sri Narayan Amit Malempati IAS"
+    escalation_email = ticket.escalation_officer_email or ticket.escalation_email or "zcquthbullapur.ghmc@gmail.com"
+    escalation_name = ticket.escalation_officer_name or "Sri Parmar Pinkeshkumar Lalitkumar, IAS"
 
     return {
         "id": ticket.id,

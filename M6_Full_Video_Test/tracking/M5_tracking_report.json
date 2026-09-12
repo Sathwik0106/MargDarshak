@@ -1,0 +1,16 @@
+{
+  "input": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/detections/M4/M4_full_video_detections.csv",
+  "method": "Greedy detection association using same-class constraint, bbox IoU and normalized center distance.",
+  "sampling_rate": "~1 FPS",
+  "parameters": {
+    "MAX_FRAME_GAP": 2,
+    "MAX_CENTER_DISTANCE_NORM": 0.12,
+    "MIN_IOU": 0.05,
+    "MIN_MATCH_SCORE": 0.12
+  },
+  "detections": 4101,
+  "tracked_detections": 4101,
+  "unique_tracks": 4101,
+  "verdict": "1FPS_INSUFFICIENT_FOR_RELIABLE_TRACKING",
+  "runtime_sec": 1789173010.0309741
+}

@@ -4,7 +4,7 @@ import {
   User, ThumbsUp, Clock, Phone, Mail, ExternalLink, ShieldCheck, ArrowRight
 } from 'lucide-react';
 
-export default function ProofModal({ ticket, onClose, onEscalate }) {
+export default function ProofModal({ ticket, portalMode = 'admin', onClose, onEscalate, onVote }) {
   if (!ticket) return null;
 
   const lat = ticket.location?.latitude;
@@ -12,8 +12,8 @@ export default function ProofModal({ ticket, onClose, onEscalate }) {
   const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
 
   const getImgSrc = (imgProp, urlProp) => {
-    if (urlProp) return urlProp;
-    if (!imgProp) return null;
+    if (urlProp && !urlProp.includes('sample_pothole_before')) return urlProp;
+    if (!imgProp || imgProp === 'sample_pothole_before.jpg' || imgProp.includes('sample_pothole_before')) return null;
     if (imgProp.startsWith('http://') || imgProp.startsWith('https://') || imgProp.startsWith('/')) {
       return imgProp;
     }
@@ -73,7 +73,7 @@ export default function ProofModal({ ticket, onClose, onEscalate }) {
                 </span>
               </div>
               <h3 className="text-base sm:text-lg font-extrabold text-slate-900 capitalize leading-snug">
-                {ticket.problem} &mdash; Defect Verification &amp; SLA Console
+                {ticket.problem} &mdash; {portalMode === 'admin' ? 'Defect Verification & SLA Console' : 'Public Grievance & Inspection Details'}
               </h3>
             </div>
           </div>
@@ -353,58 +353,118 @@ export default function ProofModal({ ticket, onClose, onEscalate }) {
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600 font-mono block">
                   Municipal Officer Accountability
                 </span>
-                <div className="space-y-1.5 font-medium">
-                  <div className="flex items-center gap-2 text-slate-800">
-                    <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span><b>Circle EE:</b> {ticket.assigned_officer_name || 'G. Anjaneyulu (EE)'}</span>
+                <div className="space-y-2 font-medium">
+                  <div className="flex items-start gap-2 text-slate-800">
+                    <User className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-slate-900">{ticket.assigned_officer_name || 'Deputy Commissioner'}</div>
+                      <div className="text-[10px] text-slate-500 font-mono">{ticket.assigned_officer_designation || 'DEPUTY COMMISSIONER'}</div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-slate-700">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span><b>Ward / Zone:</b> {ticket.assigned_circle || 'Circle 12'} &bull; {ticket.assigned_zone || 'Central Zone'}</span>
+                    <span><b>Circle:</b> {ticket.assigned_circle || 'Circle Office'} &bull; <b>Zone:</b> {ticket.assigned_zone || 'Municipal Zone'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-700">
                     <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-mono truncate">{ticket.assigned_officer_email || ticket.contractor_email || 'ee-circle12@ghmc.gov.in'}</span>
+                    <a 
+                      href={`mailto:${ticket.assigned_officer_email || ticket.contractor_email}`}
+                      className="font-mono text-blue-600 hover:text-blue-800 underline truncate"
+                    >
+                      {ticket.assigned_officer_email || ticket.contractor_email || 'circle-office@ghmc.gov.in'}
+                    </a>
                   </div>
                   {ticket.assigned_officer_phone && (
                     <div className="flex items-center gap-2 text-slate-700">
                       <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="font-mono">{ticket.assigned_officer_phone}</span>
+                      <a 
+                        href={`tel:${ticket.assigned_officer_phone}`}
+                        className="font-mono text-blue-600 hover:text-blue-800 font-bold"
+                      >
+                        {ticket.assigned_officer_phone}
+                      </a>
                     </div>
                   )}
                   <div className="pt-2 border-t border-slate-100 flex items-start gap-2 text-slate-700">
                     <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <span className="text-[10px] text-slate-400 block uppercase font-mono">Higher Authority (T+7 Escalation)</span>
-                      <span className="font-bold text-slate-800 text-[11px]">{ticket.escalation_officer_name || 'Sri Mayank Singh IAS (Zonal Commissioner)'}</span>
+                      <span className="font-bold text-slate-800 text-[11px] block">{ticket.escalation_officer_name || 'Sri Mayank Singh IAS'}</span>
+                      <span className="text-[10px] text-slate-500 font-mono block">{ticket.escalation_officer_designation || 'Zonal Commissioner'}</span>
+                      {ticket.escalation_officer_email && (
+                        <a 
+                          href={`mailto:${ticket.escalation_officer_email}`}
+                          className="text-[10px] text-blue-600 hover:text-blue-800 font-mono underline block"
+                        >
+                          {ticket.escalation_officer_email}
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 4. Action Buttons */}
+              {/* 4. Action Buttons (Role-based: Admin vs Citizen) */}
               <div className="space-y-2 pt-2">
-                <a
-                  href={`http://localhost:8000/contractor/resolve/${ticket.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Accept Repair &amp; Close Defect</span>
-                </a>
+                {portalMode === 'admin' ? (
+                  <>
+                    <a
+                      href={`http://localhost:8000/contractor/resolve/${ticket.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Accept Repair &amp; Close Defect</span>
+                    </a>
 
-                {ticket.status !== 'RESOLVED' && ticket.status !== 'ESCALATED_ZONAL' && (
-                  <button
-                    onClick={() => {
-                      onEscalate(ticket.id);
-                      onClose();
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold text-xs transition"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                    <span>Request Re-Inspection / Escalate SLA</span>
-                  </button>
+                    {ticket.status !== 'RESOLVED' && ticket.status !== 'ESCALATED_ZONAL' && (
+                      <button
+                        onClick={() => {
+                          onEscalate(ticket.id);
+                          onClose();
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold text-xs transition"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <span>Request Re-Inspection / Escalate SLA</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2.5">
+                    {ticket.status === 'RESOLVED' ? (
+                      <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold text-xs">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span>Defect Resolved &amp; Work Verified by GHMC</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onVote && onVote(ticket.id)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition active:scale-95"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                        <span>Upvote Community Priority ({ticket.votes || 1} Endorsements)</span>
+                      </button>
+                    )}
+
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5 text-slate-600">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>Citizen Charter Guarantee</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Defect rectification and official closure are conducted exclusively by designated municipal engineers under GHMC statutory SLA.
+                      </p>
+                      <div className="pt-1.5 flex items-center justify-between text-[11px] border-t border-slate-200/60 font-mono">
+                        <span className="text-slate-500">Citizen Helpline:</span>
+                        <a href="tel:155304" className="font-bold text-emerald-700 hover:underline">
+                          📞 155304 (Toll-Free)
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

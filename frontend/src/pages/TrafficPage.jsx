@@ -3,7 +3,7 @@ import { ArrowLeft, Car, TrendingUp, AlertCircle, Clock, Activity } from 'lucide
 import OpenStreetMap from '../components/OpenStreetMap';
 import TicketTable from '../components/TicketTable';
 
-export default function TrafficPage({ tickets, onBack, onSelectTicket, onEscalateTicket, onVote }) {
+export default function TrafficPage({ tickets, portalMode = 'user', onBack, onSelectTicket, onEscalateTicket, onVote }) {
   const trafficTickets = tickets.filter((t) => {
     const p = (t.problem || '').toLowerCase();
     return ['traffic', 'vehicle', 'car', 'bus', 'truck', 'bottleneck', 'congestion'].some(k => p.includes(k));
@@ -86,6 +86,7 @@ export default function TrafficPage({ tickets, onBack, onSelectTicket, onEscalat
         onSelectTicket={onSelectTicket}
         onEscalateTicket={onEscalateTicket}
         onVote={onVote}
+        portalMode={portalMode}
       />
     </div>
   );

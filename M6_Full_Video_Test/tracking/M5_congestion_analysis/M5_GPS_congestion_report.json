@@ -1,0 +1,40 @@
+{
+  "experiment": "GPS-aware M5 congestion prototype",
+  "segment": {
+    "start_sec": 85.0,
+    "end_sec": 115.867,
+    "duration_sec": 30.867000000000004
+  },
+  "processing": {
+    "target_fps": 10.0,
+    "actual_fps": 9.994187797712346,
+    "frames_processed": 309,
+    "vehicle_observations": 1830
+  },
+  "tracking": {
+    "vehicle_track_ids": 92,
+    "persistent_tracks_ge_5": 63,
+    "median_observations": 9.5,
+    "maximum_observations": 189
+  },
+  "congestion_windows": {
+    "window_size_sec": 5.0,
+    "number_of_windows": 7,
+    "level_distribution": {
+      "VERY_HIGH": 7
+    }
+  },
+  "methodology": {
+    "gps_used": true,
+    "raw_pixel_speed_used": false,
+    "physical_vehicle_speed_claimed": false,
+    "persistent_track_threshold": 5,
+    "prototype_score_formula": "50% unique-track density + 35% persistent tracks + 15% raw observations"
+  },
+  "warning": "Congestion score is a prototype relative index. It is not calibrated against traffic-engineering ground truth and must not be presented as a measured percentage of road capacity or physical congestion.",
+  "outputs": {
+    "window_csv": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_congestion_analysis/M5_GPS_congestion_windows.csv",
+    "track_features_csv": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_congestion_analysis/M5_GPS_congestion_track_features.csv",
+    "report_json": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/tracking/M5_congestion_analysis/M5_GPS_congestion_report.json"
+  }
+}

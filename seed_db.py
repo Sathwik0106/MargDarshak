@@ -1,330 +1,219 @@
+"""
+Seed the MargDarshak database with REAL YOLO detection data from the M6 Full Video Test.
+
+Reads M1 (road damage) and M2 (waterlogging) detection CSVs, clusters detections
+into 50m road segments, picks the highest-confidence representative per
+(segment, defect_class) cluster, and inserts them as tickets.
+
+Replaces all previous mock/demo data.
+"""
+import csv
+import math
 import time
 from datetime import datetime, timezone
-from database import get_db_session, TicketModel, init_db
+from pathlib import Path
 
-def seed_rich_demo_tickets():
+from database import get_db_session, TicketModel, init_db, haversine_distance
+
+# --- Configuration ---
+M6_DIR = Path(__file__).parent / "M6_Full_Video_Test"
+DETECTION_FILES = [
+    M6_DIR / "detections" / "M1" / "M1_full_video_detections.csv",
+    M6_DIR / "detections" / "M2" / "M2_full_video_detections.csv",
+]
+CLUSTER_DISTANCE_M = 100.0  # meters per road segment
+
+
+def _human_problem_name(class_name: str) -> str:
+    """Longitudinal_Crack -> Longitudinal Crack"""
+    return class_name.replace("_", " ")
+
+
+def _load_detections() -> list[dict]:
+    """Load all detection rows from M1 and M2 CSVs."""
+    rows = []
+    for csv_path in DETECTION_FILES:
+        if not csv_path.exists():
+            print(f"[!] Skipping missing file: {csv_path}")
+            continue
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    rows.append({
+                        "model": r["model"],
+                        "class_name": r["class_name"],
+                        "confidence": float(r["confidence"]),
+                        "latitude": float(r["latitude"]),
+                        "longitude": float(r["longitude"]),
+                        "video_time_sec": float(r["video_time_sec"]),
+                        "wall_clock_ist": r.get("wall_clock_ist", ""),
+                        "video_id": r.get("video_id", "V1"),
+                    })
+                except (ValueError, KeyError):
+                    continue
+    return rows
+
+
+def _compute_cumulative_distances(rows: list[dict]) -> list[dict]:
+    """
+    Sort detections by video_time_sec (chronological order along the route),
+    then compute cumulative route distance in meters using haversine between
+    consecutive GPS points.
+    """
+    rows.sort(key=lambda r: (r["video_id"], r["video_time_sec"]))
+
+    if not rows:
+        return rows
+
+    rows[0]["cum_dist"] = 0.0
+    for i in range(1, len(rows)):
+        prev = rows[i - 1]
+        curr = rows[i]
+        # Reset distance counter on new video segment
+        if curr["video_id"] != prev["video_id"]:
+            # Carry over distance from end of previous video
+            curr["cum_dist"] = prev["cum_dist"] + haversine_distance(
+                prev["latitude"], prev["longitude"],
+                curr["latitude"], curr["longitude"],
+            )
+        else:
+            curr["cum_dist"] = prev["cum_dist"] + haversine_distance(
+                prev["latitude"], prev["longitude"],
+                curr["latitude"], curr["longitude"],
+            )
+    return rows
+
+
+def _cluster_detections(rows: list[dict]) -> list[dict]:
+    """
+    Cluster detections by 100m segment.
+    ONE ticket per segment listing all defect types found.
+    """
+    # Group all detections by segment
+    segments: dict[int, list[dict]] = {}
+    for r in rows:
+        seg_id = int(r["cum_dist"] // CLUSTER_DISTANCE_M)
+        segments.setdefault(seg_id, []).append(r)
+
+    results = []
+    for seg_id, members in sorted(segments.items()):
+        # Collect unique defect classes with their best confidence
+        class_best: dict[str, dict] = {}
+        for m in members:
+            name = _human_problem_name(m["class_name"])
+            if name not in class_best or m["confidence"] > class_best[name]["confidence"]:
+                class_best[name] = m
+
+        # Build combined problem string listing all issues
+        issue_names = sorted(class_best.keys())
+        problem = ", ".join(issue_names)
+
+        # Use the highest-confidence detection overall for location
+        best = max(members, key=lambda m: m["confidence"])
+
+        results.append({
+            "segment_id": seg_id,
+            "problem": problem,
+            "confidence": best["confidence"],
+            "latitude": best["latitude"],
+            "longitude": best["longitude"],
+            "votes": len(members),
+            "issue_count": len(issue_names),
+            "cum_dist": best["cum_dist"],
+        })
+
+    return results
+
+
+def seed_from_m6_detections():
+    """Main entry: clear DB, ingest clustered M6 detection data."""
     init_db()
     session = get_db_session()
-    try:
-        # Clear existing tickets so we can reseed fresh, rich demo data
-        session.query(TicketModel).delete()
-        session.commit()
 
-        now = time.time()
+    try:
+        # 1. Load raw detections
+        raw = _load_detections()
+        print(f"[*] Loaded {len(raw)} raw detections from M6 Full Video Test")
+
+        if not raw:
+            print("[!] No detection data found. Aborting seed.")
+            return
+
+        # 2. Compute cumulative route distances
+        raw = _compute_cumulative_distances(raw)
+
+        # 3. Cluster by 100m segments (one ticket per segment)
+        clustered = _cluster_detections(raw)
+        print(f"[*] Clustered into {len(clustered)} tickets ({CLUSTER_DISTANCE_M}m segments, one ticket per segment)")
+
+        # 4. Clear old tickets
+        deleted = session.query(TicketModel).delete()
+        session.commit()
+        print(f"[*] Cleared {deleted} existing tickets from database")
+
+        # 5. Insert clustered tickets
+        now_epoch = time.time()
         iso_now = datetime.now(timezone.utc).isoformat()
 
-        demo_tickets = [
-            # --- ROAD INFRASTRUCTURE (7 items) ---
-            TicketModel(
-                id="TICK-1001",
-                problem="Severe Pothole (Depth > 8cm)",
-                confidence=0.95,
-                latitude=17.4325,
-                longitude=78.4072,
-                votes=26,
-                status="ASSIGNED_TO_CONTRACTOR",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 14,
-                sla_deadline_timestamp=now + 3600 * 34,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Cold mix bitumen compaction crew scheduled for 8:00 PM off-peak repair.",
-            ),
-            TicketModel(
-                id="TICK-1002",
-                problem="Deep Road Crater & Surface Subsidence",
-                confidence=0.92,
-                latitude=17.4447,
-                longitude=78.4664,
-                votes=38,
-                status="ESCALATED_ZONAL",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 52,
-                sla_deadline_timestamp=now - 3600 * 4,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                is_escalated=True,
-                escalated_at=iso_now,
-                escalation_reason="48-Hour SLA exceeded without contractor proof. Priority Zonal Action Required.",
-            ),
-            TicketModel(
-                id="TICK-1003",
-                problem="Waterlogging & Blocked Storm Drain",
-                confidence=0.97,
-                latitude=17.4399,
-                longitude=78.4983,
-                votes=18,
-                status="RESOLVED",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 32,
-                sla_deadline_timestamp=now + 3600 * 16,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                proof_image_filename="sample_pothole_after.jpg",
-                resolved_at=iso_now,
-                resolution_summary="Silt trap cleared and surface laid with hot asphalt overlay. Full drainage restored.",
-            ),
-            TicketModel(
-                id="TICK-1004",
-                problem="Pothole Cluster & Broken Bitumen Surface",
-                confidence=0.91,
-                latitude=17.4478,
-                longitude=78.3912,
-                votes=21,
-                status="IN_PROGRESS",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 18,
-                sla_deadline_timestamp=now + 3600 * 30,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Road milling machine deployed. Patching in progress.",
-            ),
-            TicketModel(
-                id="TICK-1005",
-                problem="Damaged Concrete Median Divider",
-                confidence=0.88,
-                latitude=17.4401,
-                longitude=78.3489,
-                votes=14,
-                status="IN_PROGRESS",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 22,
-                sla_deadline_timestamp=now + 3600 * 26,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Pre-cast median curb blocks delivered. Re-alignment underway.",
-            ),
-            TicketModel(
-                id="TICK-1006",
-                problem="Sunken Manhole Cover & Asphalt Lip",
-                confidence=0.94,
-                latitude=17.4852,
-                longitude=78.4069,
-                votes=31,
-                status="RESOLVED",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 40,
-                sla_deadline_timestamp=now + 3600 * 8,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                proof_image_filename="sample_pothole_after.jpg",
-                resolved_at=iso_now,
-                resolution_summary="Manhole frame raised to grade and sealed with polymer modified bitumen.",
-            ),
-            TicketModel(
-                id="TICK-1007",
-                problem="Asphalt Surface Alligator Cracking",
-                confidence=0.89,
-                latitude=17.4339,
-                longitude=78.4485,
-                votes=12,
-                status="ASSIGNED_TO_CONTRACTOR",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 10,
-                sla_deadline_timestamp=now + 3600 * 38,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-            ),
+        from ticket_manager import ticket_manager
 
-            # --- TRAFFIC FLOW & CONGESTION (5 items) ---
-            TicketModel(
-                id="TICK-2001",
-                problem="Traffic Bottleneck & Illegal Commercial Loading",
-                confidence=0.90,
-                latitude=17.4504,
-                longitude=78.3808,
-                votes=42,
-                status="IN_PROGRESS",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 25,
-                sla_deadline_timestamp=now + 3600 * 23,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Traffic police marshals assigned to clear curb encroachment.",
-            ),
-            TicketModel(
-                id="TICK-2002",
-                problem="Signal Timing Desync Causing Junction Gridlock",
-                confidence=0.87,
-                latitude=17.4248,
-                longitude=78.4529,
-                votes=35,
-                status="ASSIGNED_TO_CONTRACTOR",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 15,
-                sla_deadline_timestamp=now + 3600 * 33,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-            ),
-            TicketModel(
-                id="TICK-2003",
-                problem="Bus Bay Illegal Auto Stand Choke Point",
-                confidence=0.93,
-                latitude=17.3949,
-                longitude=78.4431,
-                votes=47,
-                status="ESCALATED_ZONAL",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 55,
-                sla_deadline_timestamp=now - 3600 * 7,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                is_escalated=True,
-                escalated_at=iso_now,
-                escalation_reason="Severe public transit delay reported by TSRTC bus telemetry for 48h.",
-            ),
-            TicketModel(
-                id="TICK-2004",
-                problem="Narrow U-Turn Road Friction Bottleneck",
-                confidence=0.86,
-                latitude=17.4682,
-                longitude=78.3621,
-                votes=19,
-                status="RESOLVED",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 38,
-                sla_deadline_timestamp=now + 3600 * 10,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                proof_image_filename="sample_pothole_after.jpg",
-                resolved_at=iso_now,
-                resolution_summary="Flexible bollards placed to streamline turning radius and eliminate friction.",
-            ),
-            TicketModel(
-                id="TICK-2005",
-                problem="Defective Traffic Blinkers at Arterial Crossroad",
-                confidence=0.91,
-                latitude=17.3688,
-                longitude=78.5247,
-                votes=16,
-                status="IN_PROGRESS",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 16,
-                sla_deadline_timestamp=now + 3600 * 32,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Traffic electronics maintenance technician dispatched.",
-            ),
+        for i, c in enumerate(clustered):
+            ticket_id = f"TICK-{1001 + i}"
 
-            # --- PEDESTRIAN & SAFETY INTELLIGENCE (5 items) ---
-            TicketModel(
-                id="TICK-3001",
-                problem="Missing Pedestrian Zebra & School Crossing Hazard",
-                confidence=0.96,
-                latitude=17.3616,
-                longitude=78.4747,
-                votes=54,
-                status="ASSIGNED_TO_CONTRACTOR",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 12,
-                sla_deadline_timestamp=now + 3600 * 36,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-            ),
-            TicketModel(
-                id="TICK-3002",
-                problem="Dark Street Segment & Blind Pedestrian Crossing",
-                confidence=0.94,
-                latitude=17.4192,
-                longitude=78.4481,
-                votes=39,
-                status="RESOLVED",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 44,
-                sla_deadline_timestamp=now + 3600 * 4,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                proof_image_filename="sample_pothole_after.jpg",
-                resolved_at=iso_now,
-                resolution_summary="High-mast LED luminaire repaired and retro-reflective warning signs posted.",
-            ),
-            TicketModel(
-                id="TICK-3003",
-                problem="Unprotected Deep Excavation Trench on Roadside",
-                confidence=0.98,
-                latitude=17.3998,
-                longitude=78.4114,
-                votes=63,
-                status="ESCALATED_ZONAL",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 50,
-                sla_deadline_timestamp=now - 3600 * 2,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                is_escalated=True,
-                escalated_at=iso_now,
-                escalation_reason="Severe public safety hazard near school route. Red barricading missing.",
-            ),
-            TicketModel(
-                id="TICK-3004",
-                problem="School Zone Lack of Speed Calming Table",
-                confidence=0.90,
-                latitude=17.4411,
-                longitude=78.5019,
-                votes=28,
-                status="IN_PROGRESS",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 20,
-                sla_deadline_timestamp=now + 3600 * 28,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-                plan_of_action="Rubberized thermoplastic speed table construction approved and scheduled.",
-            ),
-            TicketModel(
-                id="TICK-3005",
-                problem="High-Speed Merge Conflict & Missing Signboard",
-                confidence=0.92,
-                latitude=17.4123,
-                longitude=78.3391,
-                votes=22,
-                status="ASSIGNED_TO_CONTRACTOR",
-                contractor_email="ee-circle12@ghmc.gov.in",
-                escalation_email="zc-central@ghmc.gov.in",
-                created_at=iso_now,
-                created_timestamp=now - 3600 * 8,
-                sla_deadline_timestamp=now + 3600 * 40,
-                last_voted_at=iso_now,
-                evidence_image_filename="sample_pothole_before.jpg",
-            ),
-        ]
+            # Dynamically map responsible CMC officer based on GPS coordinates
+            officer = ticket_manager._assign_municipal_officers(session, c["latitude"], c["longitude"], c["problem"])
 
-        session.add_all(demo_tickets)
+            # SLA deadlines: T+3, T+5, T+7
+            t3_deadline = now_epoch + (3 * 86400)
+            t5_deadline = now_epoch + (5 * 86400)
+            t7_deadline = now_epoch + (7 * 86400)
+
+            ticket = TicketModel(
+                id=ticket_id,
+                problem=c["problem"],
+                confidence=round(c["confidence"], 4),
+                latitude=c["latitude"],
+                longitude=c["longitude"],
+                votes=c["votes"],
+                status="FILED",
+                assigned_officer_name=officer["assigned_officer_name"],
+                assigned_officer_designation=officer["assigned_officer_designation"],
+                assigned_officer_email=officer["assigned_officer_email"],
+                assigned_officer_phone=officer["assigned_officer_phone"],
+                assigned_zone=officer["assigned_zone"],
+                assigned_circle=officer["assigned_circle"],
+                escalation_officer_name=officer["escalation_officer_name"],
+                escalation_officer_designation=officer["escalation_officer_designation"],
+                escalation_officer_email=officer["escalation_officer_email"],
+                contractor_email=officer["assigned_officer_email"],
+                escalation_email=officer["escalation_officer_email"],
+                created_at=iso_now,
+                created_timestamp=now_epoch,
+                sla_t3_intake_deadline=t3_deadline,
+                sla_t5_response_deadline=t5_deadline,
+                sla_t7_resolution_deadline=t7_deadline,
+                sla_deadline_timestamp=t7_deadline,
+                current_sla_stage="T_INTAKE",
+                last_voted_at=iso_now,
+            )
+            session.add(ticket)
+
         session.commit()
-        print(f"[+] Successfully seeded {len(demo_tickets)} rich Hyderabad municipal defect tickets!")
+        print(f"[+] Successfully seeded {len(clustered)} real M6 detection tickets!")
+        print(f"    Models: M1 (road damage), M2 (waterlogging)")
+        print(f"    Clustering: {CLUSTER_DISTANCE_M}m road segments (one ticket per segment)")
+
+        # Summary stats
+        total_votes = sum(c["votes"] for c in clustered)
+        print(f"\n    --- Ticket Breakdown ---")
+        for c in clustered:
+            print(f"    TICK-{1001 + clustered.index(c)}: {c['problem']} ({c['votes']} detections)")
+        print(f"    Total raw detections absorbed: {total_votes}")
+
     finally:
         session.close()
 
+
 if __name__ == "__main__":
-    seed_rich_demo_tickets()
+    seed_from_m6_detections()

@@ -91,6 +91,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/vote`, { method: 'POST' });
       if (res.ok) {
         fetchTickets();
+        setSelectedTicket(prev => prev && prev.id === ticketId ? { ...prev, votes: (prev.votes || 1) + 1 } : prev);
       }
     } catch (err) {
       console.error('Vote error:', err);
@@ -133,7 +134,7 @@ export default function App() {
           problem: payload.problem,
           confidence: payload.confidence,
           location: payload.location,
-          image_bytes: 'sample_pothole_before.jpg',
+          image_bytes: payload.image_bytes || null,
         }),
       });
       if (res.ok) {
@@ -240,6 +241,7 @@ export default function App() {
                 onSelectTicket={(ticket) => setSelectedTicket(ticket)}
                 onEscalateTicket={handleEscalate}
                 onVote={handleVote}
+                portalMode={portalMode}
               />
             </div>
           )}
@@ -269,6 +271,7 @@ export default function App() {
           {activeTab === 'road' && (
             <RoadInfraPage
               tickets={displayedTickets}
+              portalMode={portalMode}
               onBack={handleBack}
               onSelectTicket={(ticket) => setSelectedTicket(ticket)}
               onEscalateTicket={handleEscalate}
@@ -279,6 +282,7 @@ export default function App() {
           {activeTab === 'traffic' && (
             <TrafficPage
               tickets={displayedTickets}
+              portalMode={portalMode}
               onBack={handleBack}
               onSelectTicket={(ticket) => setSelectedTicket(ticket)}
               onEscalateTicket={handleEscalate}
@@ -289,6 +293,7 @@ export default function App() {
           {activeTab === 'safety' && (
             <SafetyPage
               tickets={displayedTickets}
+              portalMode={portalMode}
               onBack={handleBack}
               onSelectTicket={(ticket) => setSelectedTicket(ticket)}
               onEscalateTicket={handleEscalate}
@@ -301,8 +306,10 @@ export default function App() {
       {/* Evidentiary Inspection Modal (Before vs After Photo Proof) */}
       <ProofModal
         ticket={selectedTicket}
+        portalMode={portalMode}
         onClose={() => setSelectedTicket(null)}
         onEscalate={handleEscalate}
+        onVote={handleVote}
       />
 
       {/* Video Runner Modal (Fleet Survey Processing) */}

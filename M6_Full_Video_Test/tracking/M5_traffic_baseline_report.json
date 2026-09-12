@@ -1,0 +1,14 @@
+{
+  "input": "/content/drive/MyDrive/SIH124/M6_Full_Video_Test/detections/M4/M4_full_video_detections.csv",
+  "sampling_rate": "approximately 1 FPS",
+  "window_size_sec": 5.0,
+  "candidate_threshold_vehicle_detections_per_frame": 4.0,
+  "total_detections": 4101,
+  "vehicle_detections": 2378,
+  "pedestrian_detections": 1723,
+  "number_of_windows": 135,
+  "mean_vehicle_detections_per_frame": 3.5229629629629624,
+  "median_vehicle_detections_per_frame": 3.4,
+  "max_vehicle_detections_per_frame": 8.2,
+  "candidate_regions": 10
+}

@@ -44,7 +44,7 @@ export default function CitizenReportModal({ isOpen, onClose, onTicketCreated })
         problem: `${problemType}: ${landmark || 'Public Road'}`,
         confidence: 0.95,
         location: { latitude: lat, longitude: lon },
-        image_bytes: photoPreview || 'sample_pothole_before.jpg',
+        image_bytes: photoPreview || null,
       };
 
       const res = await fetch('http://localhost:8000/api/detections', {

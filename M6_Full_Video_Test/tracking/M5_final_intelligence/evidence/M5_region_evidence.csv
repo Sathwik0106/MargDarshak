@@ -1,0 +1,3 @@
+region,windows,gps_available_windows,gps_coverage_percent,mean_vehicle_observations,max_vehicle_observations,mean_unique_tracks,max_unique_tracks,mean_persistent_tracks,max_persistent_tracks,mean_persistence_ratio,mean_motorcycles,mean_cars,mean_buses,mean_trucks,mean_pedestrians,mean_route_speed_kmh,mean_intelligence_score,max_intelligence_score
+HT02,7,7,100.0,261.42857142857144,366.0,18.428571428571427,26,12.571428571428571,21.0,0.6661235193378051,16.571428571428573,1.1428571428571428,0.5714285714285714,0.14285714285714285,0.0,9.235664737103846,58.49049957301462,94.74057582042226
+HT03_HT06,20,3,15.0,234.45,343.0,12.05,21,9.25,16.0,0.7857329989412033,9.35,2.15,0.65,0.05,0.0,19.377369677886588,28.927948487251495,75.3655758204223

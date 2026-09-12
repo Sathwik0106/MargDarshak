@@ -13,6 +13,7 @@ export default function CitizenWorkspace({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [officerFilter, setOfficerFilter] = useState('ALL');
 
   const getCategory = (t) => {
     const p = (t.problem || '').toLowerCase();
@@ -32,15 +33,27 @@ export default function CitizenWorkspace({
   const totalResolved = tickets.filter(t => t.status === 'RESOLVED').length;
   const totalVotes = tickets.reduce((sum, t) => sum + (t.votes || 1), 0);
 
-  // Filtered tickets based on search and category
+  // Dynamic officer counts for filtering
+  const officerCounts = tickets.reduce((acc, t) => {
+    const name = t.assigned_officer_name || 'Officer';
+    const circle = t.assigned_circle || 'Circle';
+    const key = `${name}|${circle}`;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Filtered tickets based on search, category, and officer
   const filteredTickets = tickets.filter(t => {
     const matchesCategory = categoryFilter === 'ALL' || getCategory(t) === categoryFilter;
+    const matchesOfficer = officerFilter === 'ALL' || (t.assigned_officer_name && t.assigned_officer_name.includes(officerFilter)) || (t.assigned_circle && t.assigned_circle.includes(officerFilter));
     const q = searchQuery.toLowerCase().trim();
     const matchesQuery = !q ||
       (t.id && t.id.toLowerCase().includes(q)) ||
       (t.problem && t.problem.toLowerCase().includes(q)) ||
+      (t.assigned_officer_name && t.assigned_officer_name.toLowerCase().includes(q)) ||
+      (t.assigned_circle && t.assigned_circle.toLowerCase().includes(q)) ||
       (t.contractor_email && t.contractor_email.toLowerCase().includes(q));
-    return matchesCategory && matchesQuery;
+    return matchesCategory && matchesOfficer && matchesQuery;
   });
 
   const getStatusBadge = (status) => {
@@ -286,6 +299,35 @@ export default function CitizenWorkspace({
           </div>
         </div>
 
+        {/* Officer & Circle Jurisdiction Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
+          <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+            <span>🏛️</span> Assigned Officer:
+          </span>
+          <button
+            onClick={() => setOfficerFilter('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${officerFilter === 'ALL' ? 'bg-[#0a2540] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            All Officers ({tickets.length})
+          </button>
+          {Object.entries(officerCounts).map(([key, count]) => {
+            const [name, circle] = key.split('|');
+            const isActive = officerFilter === name;
+            return (
+              <button
+                key={key}
+                onClick={() => setOfficerFilter(isActive ? 'ALL' : name)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'}`}
+              >
+                <span>{name}</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${isActive ? 'bg-blue-800 text-blue-100' : 'bg-slate-100 text-slate-600'}`}>
+                  {circle} ({count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* The Grid of Transparent Defect Cards */}
         {filteredTickets.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-500 space-y-2">
@@ -298,52 +340,100 @@ export default function CitizenWorkspace({
               const lat = ticket.location?.latitude;
               const lon = ticket.location?.longitude;
               const hasProof = Boolean(ticket.proof_image_filename || ticket.proof_image_url || ticket.proof_image_bytes);
-              const imgSrc = ticket.evidence_image_url || ticket.image_bytes || 'http://localhost:8000/api/images/sample_pothole_before.jpg';
+              const hasRealImage = Boolean(
+                (ticket.evidence_image_url && !ticket.evidence_image_url.includes('sample_pothole_before')) ||
+                (ticket.image_bytes && ticket.image_bytes !== 'sample_pothole_before.jpg' && !ticket.image_bytes.includes('sample_pothole_before'))
+              );
+              const imgSrc = hasRealImage ? (ticket.evidence_image_url || ticket.image_bytes) : null;
 
               return (
                 <div 
                   key={ticket.id} 
                   className="gov-card bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between"
                 >
-                  <div className="space-y-3">
-                    {/* Card Top: Ticket ID + Status */}
+                  <div className="space-y-4">
+                    {/* Card Top: Ticket ID + AI Confidence Badge + Status */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                        #{ticket.id}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                          #{ticket.id}
+                        </span>
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                          AI Conf: {(ticket.confidence ? (ticket.confidence * 100).toFixed(0) : 92)}%
+                        </span>
+                      </div>
                       {getStatusBadge(ticket.status)}
                     </div>
 
-                    {/* Photo thumbnail */}
-                    <div className="relative rounded-xl overflow-hidden bg-slate-100 h-44 border border-slate-200/70">
-                      <img
-                        src={imgSrc}
-                        alt={ticket.problem}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'http://localhost:8000/api/images/sample_pothole_before.jpg';
-                        }}
-                      />
-                      <div className="absolute bottom-2 left-2 bg-[#0a2540]/85 backdrop-blur-xs text-white text-[11px] font-mono px-2 py-0.5 rounded">
-                        AI Conf: {(ticket.confidence ? (ticket.confidence * 100).toFixed(0) : 92)}%
+                    {/* If ticket has a genuine non-placeholder image, display it */}
+                    {imgSrc && (
+                      <div className="relative rounded-xl overflow-hidden bg-slate-100 h-44 border border-slate-200/70">
+                        <img
+                          src={imgSrc}
+                          alt={ticket.problem}
+                          className="w-full h-full object-cover"
+                        />
+                        {hasProof && (
+                          <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Proof Attached
+                          </div>
+                        )}
                       </div>
-                      {hasProof && (
-                        <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Proof Attached
-                        </div>
-                      )}
-                    </div>
+                    )}
 
-                    {/* Defect Title & Location */}
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
-                        {ticket.problem}
-                      </h4>
-                      <div className="flex items-center gap-1.5 text-slate-500 text-xs mt-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                        <span className="truncate font-medium">
-                          {lat ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'Hyderabad Ward'} • Greater Hyderabad
-                        </span>
+                    {/* Defect Title & Issues */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(ticket.problem || '').split(',').map((issue, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200/80"
+                          >
+                            {issue.trim()}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                        <div className="flex items-center gap-1.5 truncate font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                          <span className="truncate">
+                            {lat ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'Hyderabad Ward'} • Greater Hyderabad
+                          </span>
+                        </div>
+                        {hasProof && !imgSrc && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Proof Attached
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Assigned Municipal Officer & Jurisdiction */}
+                      <div className="pt-2 border-t border-slate-100/90 space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-800 truncate">
+                            <span className="text-blue-600">🏛️</span>
+                            <span className="truncate">{ticket.assigned_officer_name || 'Circle Officer'}</span>
+                            <span className="text-[10px] font-mono font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {ticket.assigned_circle || 'Circle'}
+                            </span>
+                          </div>
+                          {ticket.assigned_officer_phone && (
+                            <a 
+                              href={`tel:${ticket.assigned_officer_phone}`}
+                              title={`Call ${ticket.assigned_officer_name}`}
+                              className="text-blue-600 hover:text-blue-800 font-mono font-bold text-[11px] shrink-0"
+                            >
+                              📞 {ticket.assigned_officer_phone}
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                          <span>Zone: {ticket.assigned_zone || 'Hyderabad'}</span>
+                          {ticket.escalation_officer_name && (
+                            <span className="truncate ml-1 text-slate-500 font-medium">Esc: {ticket.escalation_officer_name.replace('Sri ', '').split(',')[0]}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -368,7 +458,7 @@ export default function CitizenWorkspace({
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0a2540] hover:bg-[#153e6b] text-white text-xs font-bold transition shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>View Proof</span>
+                      <span>{hasProof ? 'View Proof' : 'View Details'}</span>
                     </button>
                   </div>
                 </div>

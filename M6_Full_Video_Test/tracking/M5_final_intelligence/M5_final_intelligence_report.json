@@ -1,0 +1,78 @@
+{
+  "cell": "Cell 16",
+  "purpose": "Final M5 traffic intelligence integration.",
+  "windows_processed": 27,
+  "regions": [
+    "HT02",
+    "HT03_HT06"
+  ],
+  "gps_available_windows": 10,
+  "gps_unavailable_windows": 17,
+  "traffic_observation_intensity": "Vehicle observations per second. This is descriptive traffic intensity, not ground-truth physical congestion.",
+  "tracking_persistence": "Persistent vehicle tracks meeting the existing 5-observation tracking threshold.",
+  "prototype_score_weights": {
+    "unique_vehicle_tracks": 0.4,
+    "persistent_tracks": 0.3,
+    "vehicle_observation_intensity": 0.2,
+    "vehicle_composition": 0.1
+  },
+  "gps_interpretation": "GPS provides route localization and camera/platform movement context. It does not independently determine congestion.",
+  "limitations": [
+    "M4 detections are not identical to unique physical vehicles.",
+    "Tracking was performed at approximately 10 FPS in selected regions.",
+    "The full-video 1 FPS diagnostic was insufficient for reliable tracking.",
+    "GPS is unavailable during the large GPX recording gap.",
+    "The traffic intelligence score is a prototype and has not been validated against ground truth.",
+    "GPS route speed describes camera/platform movement, not individual vehicle speed."
+  ],
+  "region_summary": [
+    {
+      "region": "HT02",
+      "windows": 7,
+      "gps_available_windows": 7,
+      "gps_unavailable_windows": 0,
+      "mean_vehicle_observations": 261.42857142857144,
+      "max_vehicle_observations": 366,
+      "mean_unique_tracks": 18.428571428571427,
+      "max_unique_tracks": 26,
+      "mean_persistent_tracks": 12.571428571428571,
+      "max_persistent_tracks": 21,
+      "mean_observations_per_sec": 61.00253748558242,
+      "mean_motorcycle_tracks": 16.571428571428573,
+      "mean_car_tracks": 1.1428571428571428,
+      "mean_bus_tracks": 0.5714285714285714,
+      "mean_truck_tracks": 0.14285714285714285,
+      "mean_pedestrian_tracks": 0.0,
+      "mean_motorcycle_share": 0.8940171733028875,
+      "mean_heavy_vehicle_share": 0.044024427952999386,
+      "mean_route_speed_kmh": 9.235664737103846,
+      "max_route_speed_kmh": 17.922897836677354,
+      "mean_intelligence_score": 58.49049957301462,
+      "max_intelligence_score": 94.74057582042226
+    },
+    {
+      "region": "HT03_HT06",
+      "windows": 20,
+      "gps_available_windows": 3,
+      "gps_unavailable_windows": 17,
+      "mean_vehicle_observations": 234.45,
+      "max_vehicle_observations": 343,
+      "mean_unique_tracks": 12.05,
+      "max_unique_tracks": 21,
+      "mean_persistent_tracks": 9.25,
+      "max_persistent_tracks": 16,
+      "mean_observations_per_sec": 46.89,
+      "mean_motorcycle_tracks": 9.35,
+      "mean_car_tracks": 2.15,
+      "mean_bus_tracks": 0.65,
+      "mean_truck_tracks": 0.05,
+      "mean_pedestrian_tracks": 0.0,
+      "mean_motorcycle_share": 0.780677268208228,
+      "mean_heavy_vehicle_share": 0.053755221386800334,
+      "mean_route_speed_kmh": 19.377369677886588,
+      "max_route_speed_kmh": 20.255428386810404,
+      "mean_intelligence_score": 28.927948487251495,
+      "max_intelligence_score": 75.3655758204223
+    }
+  ]
+}

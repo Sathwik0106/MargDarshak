@@ -25,3 +25,12 @@ Thumbs.db
 
 # YOLO weights
 *.pt
+*.onnx
+
+# Video & Raw Media (exceeds GitHub 100MB limit)
+*.mp4
+*.avi
+*.mkv
+*.mov
+M6_Full_Video_Test/videos/
+scratch_cmc.html

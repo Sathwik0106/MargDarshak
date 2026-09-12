@@ -3,7 +3,7 @@ import { ArrowLeft, ShieldAlert, Users, AlertTriangle, UserCheck, Eye } from 'lu
 import OpenStreetMap from '../components/OpenStreetMap';
 import TicketTable from '../components/TicketTable';
 
-export default function SafetyPage({ tickets, onBack, onSelectTicket, onEscalateTicket, onVote }) {
+export default function SafetyPage({ tickets, portalMode = 'user', onBack, onSelectTicket, onEscalateTicket, onVote }) {
   const safetyTickets = tickets.filter((t) => {
     const p = (t.problem || '').toLowerCase();
     return ['pedestrian', 'school', 'children', 'crossing', 'rash', 'hit_and_run', 'person', 'safety', 'conflict'].some(k => p.includes(k));
@@ -86,6 +86,7 @@ export default function SafetyPage({ tickets, onBack, onSelectTicket, onEscalate
         onSelectTicket={onSelectTicket}
         onEscalateTicket={onEscalateTicket}
         onVote={onVote}
+        portalMode={portalMode}
       />
     </div>
   );
