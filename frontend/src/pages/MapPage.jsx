@@ -22,7 +22,8 @@ export default function MapPage({ tickets, onBack, onSelectTicket }) {
           <button
             onClick={onBack}
             className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
-            title="Back to Command Workspace"
+            title="Go back"
+            aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

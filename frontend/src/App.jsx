@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import CommandWorkspace from './components/CommandWorkspace';
 import TicketTable from './components/TicketTable';
 import ProofModal from './components/ProofModal';
 import VideoRunnerModal from './components/VideoRunnerModal';
+import CitizenWorkspace from './components/CitizenWorkspace';
 
 // Dedicated Category Pages
 import RoadInfraPage from './pages/RoadInfraPage';
@@ -17,10 +19,18 @@ const API_BASE = 'http://localhost:8000';
 
 export default function App() {
   const [tickets, setTickets] = useState([]);
+  const [portalMode, setPortalMode] = useState('admin'); // 'admin' | 'user'
   const [activeTab, setActiveTab] = useState('workspace');
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [alertBanner, setAlertBanner] = useState(null);
+  const [textSize, setTextSize] = useState('md');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Accessibility font-size root scaling
+  useEffect(() => {
+    document.documentElement.className = `text-size-${textSize}`;
+  }, [textSize]);
 
   // Fetch tickets from backend
   const fetchTickets = async () => {
@@ -41,12 +51,58 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Filtered tickets based on top search bar
+  const displayedTickets = tickets.filter(t => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (t.id && t.id.toLowerCase().includes(q)) ||
+      (t.problem && t.problem.toLowerCase().includes(q)) ||
+      (t.contractor_email && t.contractor_email.toLowerCase().includes(q))
+    );
+  });
+
+  // Switch between Admin Mode and User (Citizen) Mode
+  const handleTogglePortalMode = (mode) => {
+    setPortalMode(mode);
+    if (mode === 'admin') {
+      if (!['workspace', 'map', 'tickets', 'sla'].includes(activeTab)) {
+        setActiveTab('workspace');
+      }
+    } else {
+      if (!['citizen_workspace', 'road', 'traffic', 'safety'].includes(activeTab)) {
+        setActiveTab('citizen_workspace');
+      }
+    }
+  };
+
+  // Universal Back Navigation: returns to executive Command Workspace (Admin) or Grievance Tracker (Citizen)
+  const handleBack = () => {
+    if (portalMode === 'admin') {
+      setActiveTab('workspace');
+    } else {
+      setActiveTab('citizen_workspace');
+    }
+  };
+
+  // Upvote defect to increase public priority
+  const handleVote = async (ticketId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/vote`, { method: 'POST' });
+      if (res.ok) {
+        fetchTickets();
+      }
+    } catch (err) {
+      console.error('Vote error:', err);
+    }
+  };
+
   // Trigger manual escalation
   const handleEscalate = async (ticketId) => {
     try {
       const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/escalate`, { method: 'POST' });
       if (res.ok) {
-        setAlertBanner(`[SLA ESCALATION DISPATCHED] Alert email sent to lingarajusaikumar@gmail.com for ticket #${ticketId}`);
+        setAlertBanner(`[SLA ESCALATION DISPATCHED] Statutory T+7 SLA escalation notice dispatched to Zonal Commissioner for ticket #${ticketId}`);
         fetchTickets();
         setTimeout(() => setAlertBanner(null), 6000);
       }
@@ -77,7 +133,7 @@ export default function App() {
           problem: payload.problem,
           confidence: payload.confidence,
           location: payload.location,
-          image_bytes: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          image_bytes: 'sample_pothole_before.jpg',
         }),
       });
       if (res.ok) {
@@ -90,17 +146,26 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#f8fafc] text-slate-800 font-sans">
-      {/* Top Government Navigation Header */}
+      {/* Top Government Navigation Header with Portal Switcher */}
       <Header
+        portalMode={portalMode}
+        onTogglePortalMode={handleTogglePortalMode}
         tickets={tickets}
         onEmergencyEscalate={handleEmergencyEscalateAll}
+        textSize={textSize}
+        setTextSize={setTextSize}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
       />
 
       {/* SLA Alert Notification Banner */}
       {alertBanner && (
-        <div className="bg-red-600 text-white text-xs px-4 py-2 font-mono font-bold flex items-center justify-between animate-pulse">
-          <span>⚠️ {alertBanner}</span>
-          <button onClick={() => setAlertBanner(null)} className="text-white hover:underline">
+        <div className="bg-red-600 text-white text-xs px-6 py-2.5 font-mono font-bold flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{alertBanner}</span>
+          </div>
+          <button onClick={() => setAlertBanner(null)} className="text-white hover:underline text-xs bg-red-700 px-2 py-0.5 rounded">
             Dismiss
           </button>
         </div>
@@ -108,113 +173,139 @@ export default function App() {
 
       {/* Main Command Center Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Government Sidebar */}
+        {/* Left Government Sidebar (dynamically partitioned by Portal Mode) */}
         <Sidebar
+          portalMode={portalMode}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           tickets={tickets}
           onOpenVideoModal={() => setIsVideoModalOpen(true)}
         />
 
-        {/* Center Dynamic Page Content */}
-        <main className="flex-1 overflow-y-auto p-5 bg-[#f8fafc]">
-          {/* 1. COMMAND WORKSPACE (EXECUTIVE INSIGHTS - NO MAP, NO CLUTTER) */}
+        {/* Center Dynamic Page Content with Generous Government Whitespace */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#f8fafc]">
+          
+          {/* ========================================================
+              ADMIN PAGES: Command Workspace, Live GIS, Grievance, 48h SLA
+             ======================================================== */}
           {activeTab === 'workspace' && (
             <CommandWorkspace
-              tickets={tickets}
+              tickets={displayedTickets}
               onNavigate={(tab) => setActiveTab(tab)}
               onSelectTicket={(ticket) => setSelectedTicket(ticket)}
-            />
-          )}
-
-          {/* 2. DEDICATED ROAD INFRASTRUCTURE PAGE */}
-          {activeTab === 'road' && (
-            <RoadInfraPage
-              tickets={tickets}
-              onBack={() => setActiveTab('workspace')}
-              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
               onEscalateTicket={handleEscalate}
+              onVote={handleVote}
             />
           )}
 
-          {/* 3. DEDICATED TRAFFIC INTELLIGENCE PAGE */}
-          {activeTab === 'traffic' && (
-            <TrafficPage
-              tickets={tickets}
-              onBack={() => setActiveTab('workspace')}
-              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
-              onEscalateTicket={handleEscalate}
-            />
-          )}
-
-          {/* 4. DEDICATED SAFETY INTELLIGENCE PAGE */}
-          {activeTab === 'safety' && (
-            <SafetyPage
-              tickets={tickets}
-              onBack={() => setActiveTab('workspace')}
-              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
-              onEscalateTicket={handleEscalate}
-            />
-          )}
-
-          {/* 5. DEDICATED FULL-SCREEN GIS MAP PAGE */}
           {activeTab === 'map' && (
             <MapPage
-              tickets={tickets}
-              onBack={() => setActiveTab('workspace')}
+              tickets={displayedTickets}
+              onBack={handleBack}
               onSelectTicket={(ticket) => setSelectedTicket(ticket)}
             />
           )}
 
-          {/* 6. DEDICATED SLA ESCALATION MATRIX PAGE */}
-          {activeTab === 'sla' && (
-            <SlaMatrixPage
-              tickets={tickets}
-              onBack={() => setActiveTab('workspace')}
-              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
-              onEscalateTicket={handleEscalate}
-            />
-          )}
-
-          {/* 7. DEDICATED ACTIVE MASTER TICKETS AUDIT QUEUE */}
           {activeTab === 'tickets' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div>
-                  <h1 className="text-2xl font-extrabold text-slate-900">
-                    Master Defect Tickets Audit Queue
-                  </h1>
-                  <p className="text-sm text-slate-600">
-                    Complete city-wide municipal defect records, contractor actions, and verified proof photos
-                  </p>
+            <div className="space-y-6">
+              <div className="gov-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleBack}
+                    className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
+                    title="Go back"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h1 className="gov-section-header text-xl">
+                      Master Municipal Defect Registry
+                    </h1>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Audit queue, officer dispatches, and evidentiary records across Hyderabad zones
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right font-mono">
-                  <span className="text-xs text-slate-500 block uppercase">Total Logged</span>
-                  <span className="text-3xl font-extrabold text-blue-700">{tickets.length}</span>
+                <div className="text-left sm:text-right font-mono bg-slate-50 border border-slate-200/80 p-3 sm:p-4 rounded-xl">
+                  <span className="gov-card-label block text-[10px]">Total In Database</span>
+                  <span className="gov-stat-value text-blue-700 block mt-0.5">{tickets.length}</span>
                 </div>
               </div>
 
               <TicketTable
-                tickets={tickets}
+                tickets={displayedTickets}
                 totalCount={tickets.length}
-                activeTab="workspace"
+                activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 onSelectTicket={(ticket) => setSelectedTicket(ticket)}
                 onEscalateTicket={handleEscalate}
+                onVote={handleVote}
               />
             </div>
+          )}
+
+          {activeTab === 'sla' && (
+            <SlaMatrixPage
+              tickets={displayedTickets}
+              onBack={handleBack}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+              onEscalateTicket={handleEscalate}
+              onVote={handleVote}
+            />
+          )}
+
+          {/* ========================================================
+              USER / CITIZEN PAGES: Overview, Road Infra, Traffic Flow, Safety
+             ======================================================== */}
+          {activeTab === 'citizen_workspace' && (
+            <CitizenWorkspace
+              tickets={displayedTickets}
+              onNavigate={(tab) => setActiveTab(tab)}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+              onVote={handleVote}
+            />
+          )}
+
+          {activeTab === 'road' && (
+            <RoadInfraPage
+              tickets={displayedTickets}
+              onBack={handleBack}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+              onEscalateTicket={handleEscalate}
+              onVote={handleVote}
+            />
+          )}
+
+          {activeTab === 'traffic' && (
+            <TrafficPage
+              tickets={displayedTickets}
+              onBack={handleBack}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+              onEscalateTicket={handleEscalate}
+              onVote={handleVote}
+            />
+          )}
+
+          {activeTab === 'safety' && (
+            <SafetyPage
+              tickets={displayedTickets}
+              onBack={handleBack}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+              onEscalateTicket={handleEscalate}
+              onVote={handleVote}
+            />
           )}
         </main>
       </div>
 
-      {/* Inspection Modal (Before vs After Photo Proof) */}
+      {/* Evidentiary Inspection Modal (Before vs After Photo Proof) */}
       <ProofModal
         ticket={selectedTicket}
         onClose={() => setSelectedTicket(null)}
         onEscalate={handleEscalate}
       />
 
-      {/* Video / Media Upload Modal */}
+      {/* Video Runner Modal (Fleet Survey Processing) */}
       <VideoRunnerModal
         isOpen={isVideoModalOpen}
         onClose={() => setIsVideoModalOpen(false)}

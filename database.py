@@ -39,6 +39,25 @@ except ImportError:
     HAS_GEOALCHEMY = False
 
 
+class OfficerModel(Base):
+    """
+    Municipal Personnel & Zonal Hierarchy Directory (from GHMC official contact records).
+    """
+    __tablename__ = "officers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category_wing = Column(String(100), nullable=False, index=True)
+    name = Column(String(150), nullable=False, index=True)
+    designation = Column(String(150), nullable=False)
+    department = Column(String(150), nullable=True)
+    zone = Column(String(100), nullable=True, index=True)
+    circle = Column(String(100), nullable=True, index=True)
+    constituency = Column(String(100), nullable=True)
+    address = Column(Text, nullable=True)
+    contact_number = Column(String(50), nullable=True)
+    email_id = Column(String(150), nullable=True, index=True)
+
+
 class TicketModel(Base):
     """
     Relational SQL Model for Road Defect Tickets.
@@ -53,9 +72,29 @@ class TicketModel(Base):
     longitude = Column(Float, nullable=False, index=True)
 
     votes = Column(Integer, default=1, index=True)
-    status = Column(String(50), default="ASSIGNED_TO_CONTRACTOR", index=True)
+    # Status progression: FILED -> INTAKE_COMPLETED -> IN_PROGRESS -> RESOLVED / ESCALATED_ZONAL
+    status = Column(String(50), default="FILED", index=True)
     contractor_email = Column(String(255), default=CONTRACTOR_EMAIL)
     escalation_email = Column(String(255), default=ESCALATION_EMAIL)
+
+    # Real Assigned Officer & Zonal Higher Authority from GHMC CSV
+    assigned_officer_name = Column(String(150), nullable=True)
+    assigned_officer_designation = Column(String(150), nullable=True)
+    assigned_officer_email = Column(String(150), nullable=True, index=True)
+    assigned_officer_phone = Column(String(50), nullable=True)
+    assigned_zone = Column(String(100), nullable=True)
+    assigned_circle = Column(String(100), nullable=True)
+
+    escalation_officer_name = Column(String(150), nullable=True)
+    escalation_officer_designation = Column(String(150), nullable=True)
+    escalation_officer_email = Column(String(150), nullable=True, index=True)
+
+    # T+3, T+5, T+7 SLA Milestones
+    sla_t3_intake_deadline = Column(Float, nullable=True)      # T + 3 days (Intake & Triage)
+    sla_t5_response_deadline = Column(Float, nullable=True)    # T + 5 days (Officer / Contractor Plan of Action)
+    sla_t7_resolution_deadline = Column(Float, nullable=True)  # T + 7 days (Final Resolution or Escalation)
+    intake_completed_at = Column(String(50), nullable=True)
+    current_sla_stage = Column(String(50), default="T_INTAKE", index=True) # T_INTAKE | T_RESPONSE | T_RESOLUTION | RESOLVED | ESCALATED
 
     created_at = Column(String(50), nullable=False)
     created_timestamp = Column(Float, nullable=False, default=time.time)
@@ -92,7 +131,7 @@ engine = None
 SessionLocal = None
 
 
-def _is_database_reachable(url: str, timeout_sec: float = 0.5) -> bool:
+def _is_database_reachable(url: str, timeout_sec: float = 3.0) -> bool:
     """Fast socket test to check if PostgreSQL port is actively open without hanging."""
     try:
         import socket
@@ -112,6 +151,11 @@ def init_db():
     global engine, SessionLocal, USE_POSTGIS
 
     target_url = DATABASE_URL
+    if target_url.startswith("postgres://"):
+        target_url = target_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif target_url.startswith("postgresql://"):
+        target_url = target_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
     is_postgres = target_url.startswith("postgresql")
 
     if is_postgres and _is_database_reachable(target_url):
@@ -179,13 +223,63 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
+def officer_to_dict(officer: OfficerModel) -> Dict[str, Any]:
+    """Serializes OfficerModel to dictionary."""
+    return {
+        "id": officer.id,
+        "category_wing": officer.category_wing,
+        "name": officer.name,
+        "designation": officer.designation,
+        "department": officer.department,
+        "zone": officer.zone,
+        "circle": officer.circle,
+        "constituency": officer.constituency,
+        "address": officer.address,
+        "contact_number": officer.contact_number,
+        "email_id": officer.email_id,
+    }
+
+
 def ticket_to_dict(ticket: TicketModel) -> Dict[str, Any]:
     """Serializes TicketModel to JSON dictionary format matching dashboard expectations."""
     now = time.time()
-    remaining_sla = max(0.0, ticket.sla_deadline_timestamp - now) if ticket.sla_deadline_timestamp else 0.0
+    
+    # Milestone deadlines (T+3, T+5, T+7)
+    created_ts = ticket.created_timestamp or now
+    t3_deadline = ticket.sla_t3_intake_deadline or (created_ts + 3 * 86400)
+    t5_deadline = ticket.sla_t5_response_deadline or (created_ts + 5 * 86400)
+    t7_deadline = ticket.sla_t7_resolution_deadline or ticket.sla_deadline_timestamp or (created_ts + 7 * 86400)
+
+    t3_remaining = max(0.0, t3_deadline - now)
+    t5_remaining = max(0.0, t5_deadline - now)
+    t7_remaining = max(0.0, t7_deadline - now)
+
+    # Active countdown for current stage
+    if ticket.status == "FILED":
+        active_remaining_sla = t3_remaining
+        stage_label = "T+3 Intake"
+    elif ticket.status == "INTAKE_COMPLETED":
+        active_remaining_sla = t5_remaining
+        stage_label = "T+5 Action Plan"
+    elif ticket.status == "IN_PROGRESS":
+        active_remaining_sla = t7_remaining
+        stage_label = "T+7 Resolution"
+    elif ticket.status == "RESOLVED":
+        active_remaining_sla = 0.0
+        stage_label = "Resolved"
+    else:  # ESCALATED_ZONAL
+        active_remaining_sla = 0.0
+        stage_label = "SLA Breached"
 
     evidence_url = f"{SERVER_BASE_URL}/api/images/{ticket.evidence_image_filename}" if ticket.evidence_image_filename else None
     proof_url = f"{SERVER_BASE_URL}/api/images/{ticket.proof_image_filename}" if ticket.proof_image_filename else None
+
+    # Assigned officer fallback for display
+    assigned_email = ticket.assigned_officer_email or ticket.contractor_email or "dc14b.ghmc@gmail.com"
+    assigned_name = ticket.assigned_officer_name or "G Anjaneyulu"
+    assigned_desig = ticket.assigned_officer_designation or "DEPUTY COMMISSIONER"
+    escalation_email = ticket.escalation_officer_email or ticket.escalation_email or "zc.west.ghmc@gmail.com"
+    escalation_name = ticket.escalation_officer_name or "Sri Narayan Amit Malempati IAS"
 
     return {
         "id": ticket.id,
@@ -197,12 +291,39 @@ def ticket_to_dict(ticket: TicketModel) -> Dict[str, Any]:
         },
         "votes": ticket.votes,
         "status": ticket.status,
-        "contractor_email": ticket.contractor_email,
-        "escalation_email": ticket.escalation_email,
+        
+        # Real GHMC Officer Contacts
+        "assigned_officer_name": assigned_name,
+        "assigned_officer_designation": assigned_desig,
+        "assigned_officer_email": assigned_email,
+        "assigned_officer_phone": ticket.assigned_officer_phone or "8008103667",
+        "assigned_zone": ticket.assigned_zone or "Kukatpally",
+        "assigned_circle": ticket.assigned_circle or "Kukatpally",
+        "escalation_officer_name": escalation_name,
+        "escalation_officer_designation": ticket.escalation_officer_designation or "Zonal Commissioner",
+        "escalation_officer_email": escalation_email,
+        
+        # Backwards compatibility fields
+        "contractor_email": assigned_email,
+        "escalation_email": escalation_email,
+        
         "created_at": ticket.created_at,
         "created_timestamp": ticket.created_timestamp,
-        "sla_deadline_timestamp": ticket.sla_deadline_timestamp,
-        "sla_remaining_seconds": round(remaining_sla, 1),
+        "sla_deadline_timestamp": t7_deadline,
+        "sla_remaining_seconds": round(t7_remaining, 1),
+        
+        # T+3, T+5, T+7 Timers
+        "sla_t3_intake_deadline": t3_deadline,
+        "sla_t5_response_deadline": t5_deadline,
+        "sla_t7_resolution_deadline": t7_deadline,
+        "t3_remaining_seconds": round(t3_remaining, 1),
+        "t5_remaining_seconds": round(t5_remaining, 1),
+        "t7_remaining_seconds": round(t7_remaining, 1),
+        "active_remaining_seconds": round(active_remaining_sla, 1),
+        "stage_label": stage_label,
+        "current_sla_stage": ticket.current_sla_stage or "T_INTAKE",
+        "intake_completed_at": ticket.intake_completed_at,
+        
         "last_voted_at": ticket.last_voted_at,
         "plan_of_action": ticket.plan_of_action,
         "contractor_responded_at": ticket.contractor_responded_at,
@@ -212,7 +333,6 @@ def ticket_to_dict(ticket: TicketModel) -> Dict[str, Any]:
         "proof_image_filename": ticket.proof_image_filename,
         "evidence_image_url": evidence_url,
         "proof_image_url": proof_url,
-        # Backwards compatibility fields for modal
         "image_bytes": evidence_url,
         "proof_image_bytes": proof_url,
         "is_escalated": ticket.is_escalated,

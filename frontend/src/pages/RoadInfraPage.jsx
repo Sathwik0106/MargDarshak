@@ -3,7 +3,7 @@ import { ArrowLeft, Wrench, AlertTriangle, CheckCircle2, ThumbsUp, Camera } from
 import OpenStreetMap from '../components/OpenStreetMap';
 import TicketTable from '../components/TicketTable';
 
-export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscalateTicket }) {
+export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscalateTicket, onVote }) {
   const roadTickets = tickets.filter((t) => {
     const p = (t.problem || '').toLowerCase();
     return !['traffic', 'vehicle', 'car', 'bus', 'truck', 'pedestrian', 'person', 'school'].some(k => p.includes(k));
@@ -22,7 +22,8 @@ export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscal
           <button
             onClick={onBack}
             className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
-            title="Back to Command Workspace"
+            title="Go back"
+            aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -89,6 +90,7 @@ export default function RoadInfraPage({ tickets, onBack, onSelectTicket, onEscal
         setActiveTab={() => {}}
         onSelectTicket={onSelectTicket}
         onEscalateTicket={onEscalateTicket}
+        onVote={onVote}
       />
     </div>
   );

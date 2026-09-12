@@ -294,6 +294,15 @@ async def get_ticket(ticket_id: str):
     return ticket
 
 
+@app.post("/api/tickets/{ticket_id}/vote")
+async def vote_ticket(ticket_id: str):
+    """Allows citizens to upvote a public defect, increasing its community priority."""
+    ticket = ticket_manager.vote_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"status": "voted", "votes": ticket["votes"], "ticket": ticket}
+
+
 @app.post("/api/tickets/{ticket_id}/escalate")
 async def escalate_ticket(
     ticket_id: str,
@@ -307,6 +316,34 @@ async def escalate_ticket(
 
     background_tasks.add_task(notify_ticket_escalated, ticket)
     return {"status": "escalated", "ticket": ticket}
+
+
+@app.post("/api/tickets/{ticket_id}/intake")
+async def intake_ticket(ticket_id: str):
+    """Marks ticket intake completed (Day T+3 milestone achieved), advancing status to INTAKE_COMPLETED."""
+    ticket = ticket_manager.intake_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"status": "intake_completed", "ticket": ticket}
+
+
+@app.get("/api/officers")
+async def get_officers(wing: Optional[str] = None, zone: Optional[str] = None, circle: Optional[str] = None):
+    """Returns official municipal personnel directory from Aiven database."""
+    from database import get_db_session, OfficerModel, officer_to_dict
+    db = get_db_session()
+    try:
+        q = db.query(OfficerModel)
+        if wing:
+            q = q.filter(OfficerModel.category_wing.ilike(f"%{wing}%"))
+        if zone:
+            q = q.filter(OfficerModel.zone.ilike(f"%{zone}%"))
+        if circle:
+            q = q.filter(OfficerModel.circle.ilike(f"%{circle}%"))
+        officers = q.all()
+        return [officer_to_dict(o) for o in officers]
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------

@@ -16,11 +16,18 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "sathwik661119@gmail.com")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "faprjoapfjilhlad")
 
-CONTRACTOR_EMAIL = os.getenv("CONTRACTOR_EMAIL", "abhimanu6729@gmail.com")
-ESCALATION_EMAIL = os.getenv("ESCALATION_EMAIL", "lingarajusaikumar@gmail.com")
+CONTRACTOR_EMAIL = os.getenv("CONTRACTOR_EMAIL", "dc14b.ghmc@gmail.com")
+ESCALATION_EMAIL = os.getenv("ESCALATION_EMAIL", "zc.west.ghmc@gmail.com")
 
-SLA_TIMEOUT_HOURS = float(os.getenv("SLA_TIMEOUT_HOURS", "48"))
-SLA_TIMEOUT_SECONDS = SLA_TIMEOUT_HOURS * 3600
+# T+3, T+5, T+7 SLA Milestones (in days and seconds)
+SLA_T3_INTAKE_DAYS = 3
+SLA_T3_INTAKE_SECONDS = SLA_T3_INTAKE_DAYS * 86400  # 72 hours (Day T to T+3: Intake)
+SLA_T5_RESPONSE_DAYS = 5
+SLA_T5_RESPONSE_SECONDS = SLA_T5_RESPONSE_DAYS * 86400  # 120 hours (Day T+3 to T+5: Response / Plan)
+SLA_T7_RESOLUTION_DAYS = 7
+SLA_T7_RESOLUTION_SECONDS = SLA_T7_RESOLUTION_DAYS * 86400  # 168 hours (Day T+5 to T+7: Resolution / Escalation)
+
+SLA_TIMEOUT_SECONDS = SLA_T7_RESOLUTION_SECONDS
 SLA_CHECK_INTERVAL_SECONDS = int(os.getenv("SLA_CHECK_INTERVAL_SECONDS", "30"))
 
 SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://localhost:8000")

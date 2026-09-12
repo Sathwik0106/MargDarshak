@@ -1,6 +1,131 @@
-/* Clean global styling */
+/* Government of India / State GovTech Formal Base Styling */
+html {
+  font-size: 16px;
+}
+
+html.text-size-sm {
+  font-size: 14px;
+}
+
+html.text-size-md {
+  font-size: 16px;
+}
+
+html.text-size-lg {
+  font-size: 18px;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessibility Focus Ring */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+/* Official Government Card & Containers */
+.gov-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gov-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* 3-Level Typographic Hierarchy Helpers */
+.gov-section-header {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #0f172a;
+}
+
+.gov-card-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.gov-stat-value {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+/* Clean Data Table Utilities */
+.gov-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gov-table td {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.gov-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.gov-table tbody tr:nth-child(even) {
+  background-color: #ffffff;
+}
+
+.gov-table tbody tr:nth-child(odd) {
+  background-color: #fafbfc;
+}
+
+/* Sticky frozen column with subtle border separator */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: inherit;
+  box-shadow: 1px 0 0 0 #e2e8f0;
+}
+
+/* Custom Scrollbar for Government Portals */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

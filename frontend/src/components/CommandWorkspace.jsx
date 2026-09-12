@@ -1,254 +1,418 @@
 import React from 'react';
 import { 
-  TrendingUp, AlertTriangle, ShieldCheck, MapPin, Car, Clock, 
-  Activity, BarChart3, PieChart, Users, CheckCircle2, ChevronRight 
+  MapPin, ShieldAlert, BarChart3, ChevronRight, 
+  AlertTriangle, Clock, Eye, ArrowRight, CheckCircle2, UserCheck, ShieldCheck
 } from 'lucide-react';
 import KPICards from './KPICards';
+import OpenStreetMap from './OpenStreetMap';
 
-export default function CommandWorkspace({ tickets, onNavigate, onSelectTicket }) {
-  // Compute real statistics from active tickets
-  const total = tickets.length;
-  const potholes = tickets.filter(t => (t.problem || '').toLowerCase().includes('pothole')).length;
-  const trafficCount = tickets.filter(t => ['traffic', 'vehicle', 'car', 'bus', 'truck'].some(k => (t.problem || '').toLowerCase().includes(k))).length;
-  const safetyCount = tickets.filter(t => ['pedestrian', 'person', 'school', 'rash'].some(k => (t.problem || '').toLowerCase().includes(k))).length;
+export default function CommandWorkspace({ 
+  tickets = [], 
+  onNavigate, 
+  onSelectTicket, 
+  onEscalateTicket 
+}) {
+  const getCategory = (t) => {
+    const p = (t.problem || '').toLowerCase();
+    if (['traffic', 'vehicle', 'bottleneck', 'car', 'bus', 'truck', 'motorcycle', 'auto', 'bicycle', 'congestion', 'signal', 'choke'].some(k => p.includes(k))) return 'traffic';
+    if (['pedestrian', 'school', 'children', 'crossing', 'rash', 'hit_and_run', 'person', 'safety', 'conflict', 'hazard', 'dark', 'trench'].some(k => p.includes(k))) return 'safety';
+    return 'road';
+  };
+
+  const roadCount = tickets.filter(t => getCategory(t) === 'road').length;
+  const trafficCount = tickets.filter(t => getCategory(t) === 'traffic').length;
+  const safetyCount = tickets.filter(t => getCategory(t) === 'safety').length;
 
   // Hyderabad Zone Distribution
   const hyderabadZones = [
-    { name: 'Hitec City / Madhapur Corridor', tickets: 28, risk: 'High', issue: 'Traffic Bottlenecks & Missing Dividers', progress: 75, color: 'bg-red-500' },
-    { name: 'Charminar / Old City Zone', tickets: 24, risk: 'High', issue: 'High Pedestrian Conflict & Missing Zebras', progress: 60, color: 'bg-indigo-500' },
-    { name: 'Secunderabad Cantonment', tickets: 19, risk: 'Medium', issue: 'Potholes & Surface Cracks', progress: 85, color: 'bg-amber-500' },
-    { name: 'Banjara Hills & Jubilee Hills (Ward 12)', tickets: 14, risk: 'Low', issue: 'Drainage & Waterlogging', progress: 92, color: 'bg-emerald-500' },
-    { name: 'Gachibowli Outer Ring Junction', tickets: 12, risk: 'Medium', issue: 'Damaged Traffic Signboards', progress: 80, color: 'bg-blue-500' },
+    { name: '105 - Jubilee Hills', tickets: 28, risk: 'High', issue: 'Traffic Bottlenecks & Dividers', progress: 78, badgeColor: 'bg-red-50 text-red-700 border-red-200' },
+    { name: '097 - Banjara Hills (Ward 12)', tickets: 24, risk: 'High', issue: 'High Pedestrian Conflict', progress: 82, badgeColor: 'bg-red-50 text-red-700 border-red-200' },
+    { name: '042 - Secunderabad Cantt', tickets: 19, risk: 'Medium', issue: 'Potholes & Surface Subsidence', progress: 68, badgeColor: 'bg-amber-50 text-amber-800 border-amber-200' },
+    { name: '148 - Gachibowli Junction', tickets: 14, risk: 'Low', issue: 'Drainage Obstruction & Signage', progress: 89, badgeColor: 'bg-slate-100 text-slate-700 border-slate-200' },
+    { name: '132 - Mehdipatnam Route', tickets: 12, risk: 'Medium', issue: 'Missing School Crossings', progress: 74, badgeColor: 'bg-amber-50 text-amber-800 border-amber-200' },
   ];
 
-  // Top Corridors Speed & Flow
-  const corridors = [
-    { name: 'PVNR Expressway / Airport Corridor', busSpeed: '42 km/h', flowStatus: 'Smooth Flow', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-    { name: 'Begumpet - Secunderabad Main Road', busSpeed: '16 km/h', flowStatus: 'Heavy Congestion (-18 min delay)', color: 'text-red-700 bg-red-50 border-red-200' },
-    { name: 'Gachibowli - Miyapur Arterial', busSpeed: '24 km/h', flowStatus: 'Moderate Bottleneck (-8 min delay)', color: 'text-amber-700 bg-amber-50 border-amber-200' },
-    { name: 'Mehdipatnam - Lakdikapul Route', busSpeed: '19 km/h', flowStatus: 'School Zone Friction', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
+  // Top 3 urgent tickets for Executive Attention Radar
+  const urgentTickets = [...tickets]
+    .sort((a, b) => {
+      // Prioritize ESCALATED_ZONAL, then lowest remaining SLA seconds
+      if (a.status === 'ESCALATED_ZONAL' && b.status !== 'ESCALATED_ZONAL') return -1;
+      if (b.status === 'ESCALATED_ZONAL' && a.status !== 'ESCALATED_ZONAL') return 1;
+      const aRem = a.sla_remaining_seconds !== undefined ? a.sla_remaining_seconds : 999999;
+      const bRem = b.sla_remaining_seconds !== undefined ? b.sla_remaining_seconds : 999999;
+      return aRem - bRem;
+    })
+    .slice(0, 3);
+
+  // Municipal Circle Officers Turnaround Scorecard Data
+  const officerScorecard = [
+    {
+      name: 'G. Anjaneyulu',
+      role: 'Executive Engineer (EE)',
+      circle: 'Circle 12 (Khairatabad / Jubilee Hills)',
+      tasks: 34,
+      onTimeRate: '94.8%',
+      avgResponse: '4.2h',
+      status: 'Compliant',
+      statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+    },
+    {
+      name: 'D. Lavanya',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Kompally Circle (Quthbullapur)',
+      tasks: 28,
+      onTimeRate: '88.5%',
+      avgResponse: '6.1h',
+      status: 'Under Review',
+      statusColor: 'text-amber-800 bg-amber-50 border-amber-200'
+    },
+    {
+      name: 'Md. Saber Ali',
+      role: 'Deputy Commissioner (DC)',
+      circle: 'Nizampet Circle (Kukatpally)',
+      tasks: 22,
+      onTimeRate: '91.2%',
+      avgResponse: '5.4h',
+      status: 'Compliant',
+      statusColor: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+    },
+    {
+      name: 'Sri Mayank Singh, IAS',
+      role: 'Zonal Commissioner',
+      circle: 'Central Zone (Judicial Oversight)',
+      tasks: 17,
+      onTimeRate: '98.2%',
+      avgResponse: '2.8h',
+      status: 'Exemplary',
+      statusColor: 'text-blue-800 bg-blue-50 border-blue-200'
+    }
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Top Executive KPI Metrics */}
-      <KPICards tickets={tickets} />
+    <div className="space-y-8 pb-8">
+      {/* 1. Top Executive Metric Strip */}
+      <section>
+        <div className="mb-4">
+          <h2 className="gov-section-header">Executive Situational Overview</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Real-time citywide defect sensing metrics &amp; statutory SLA compliance</p>
+        </div>
+        <KPICards tickets={tickets} />
+      </section>
 
-      {/* Main Insights Grid: Area Density Hotspots + Traffic Corridor Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Wards & Areas with Most Defect Tickets */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-red-600" />
-                Hyderabad Wards &amp; Corridors with Highest Ticket Concentration
+      {/* 2. Middle Section: Geospatial Hotspot Map + Ward Rankings + Vision Streams */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Geospatial Defect Hotspot Map (5 cols) */}
+        <div className="lg:col-span-5 gov-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <div>
+                <h3 className="gov-section-header text-base flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-700" />
+                  Geospatial Defect Hotspot Map
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Live multi-fleet detection clusters across Hyderabad
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('map')}
+                className="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1 font-mono"
+              >
+                Expand GIS &rarr;
+              </button>
+            </div>
+
+            {/* Interactive Miniature Map */}
+            <div className="mt-4 rounded-xl overflow-hidden border border-slate-200/80 h-72 relative">
+              <OpenStreetMap tickets={tickets} onSelectTicket={onSelectTicket} />
+            </div>
+
+            {/* Map Legend */}
+            <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-600">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                <span>T+7 Escalated</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span>In Progress</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                <span>Resolved</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                <span>Filed (T+3)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ward Concentration Ranking (4 cols) */}
+        <div className="lg:col-span-4 gov-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="pb-3.5 border-b border-slate-100">
+              <h3 className="gov-section-header text-base flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-blue-700" />
+                Ward Concentration Ranking
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Multi-camera bus fleet detection density ranked by municipal ward priority
+                Defect ticket density ranked by municipal ward priority
               </p>
             </div>
+
+            <div className="mt-4 space-y-3">
+              {hyderabadZones.map((zone, idx) => (
+                <div key={idx} className="p-3 bg-slate-50/70 rounded-lg border border-slate-200/70">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-900">{zone.name}</span>
+                    <span className="text-[11px] font-mono font-semibold text-slate-600">
+                      {zone.progress}% resolved
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                    <span className="truncate pr-2">{zone.issue}</span>
+                    <span className={`px-1.5 py-0.2 rounded font-mono font-bold text-[10px] border ${zone.badgeColor}`}>
+                      {zone.tickets} tickets
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-slate-200/80 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${zone.progress >= 80 ? 'bg-emerald-600' : 'bg-blue-600'}`} 
+                      style={{ width: `${zone.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Vision Intelligence Streams Summary (3 cols) */}
+        <div className="lg:col-span-3 gov-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="pb-3.5 border-b border-slate-100">
+              <h3 className="gov-section-header text-base">
+                Vision Streams
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                AI fleet automated transit detection
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {/* Stream 1 */}
+              <div 
+                onClick={() => onNavigate('road')}
+                className="p-3.5 bg-slate-50/70 hover:bg-slate-100 border border-slate-200/70 rounded-xl cursor-pointer transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    <span className="text-xs font-semibold text-slate-900 group-hover:text-blue-900">Road Defects</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-700" />
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between">
+                  <span className="text-xl font-bold text-slate-900">{roadCount}</span>
+                  <span className="text-[11px] font-mono text-slate-500">Potholes &amp; Pavement</span>
+                </div>
+              </div>
+
+              {/* Stream 2 */}
+              <div 
+                onClick={() => onNavigate('traffic')}
+                className="p-3.5 bg-slate-50/70 hover:bg-slate-100 border border-slate-200/70 rounded-xl cursor-pointer transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span className="text-xs font-semibold text-slate-900 group-hover:text-amber-900">Traffic Bottlenecks</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-700" />
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between">
+                  <span className="text-xl font-bold text-slate-900">{trafficCount}</span>
+                  <span className="text-[11px] font-mono text-amber-800">Congestion Points</span>
+                </div>
+              </div>
+
+              {/* Stream 3 */}
+              <div 
+                onClick={() => onNavigate('safety')}
+                className="p-3.5 bg-slate-50/70 hover:bg-slate-100 border border-slate-200/70 rounded-xl cursor-pointer transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span className="text-xs font-semibold text-slate-900 group-hover:text-red-900">Pedestrian Safety</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-700" />
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between">
+                  <span className="text-xl font-bold text-slate-900">{safetyCount}</span>
+                  <span className="text-[11px] font-mono text-red-700">Missing Crossings</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Bottom Section: Executive SLA Attention Radar + Officer Compliance Scorecard */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Executive SLA Attention Radar (5 cols) */}
+        <div className="lg:col-span-5 gov-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="pb-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="gov-section-header text-base flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  Executive SLA Attention Radar
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  High-priority tickets requiring immediate Zonal intervention
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                Urgent Actions
+              </span>
+            </div>
+
+            {/* 3 Urgent Action Alert Cards */}
+            <div className="mt-4 space-y-3">
+              {urgentTickets.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 font-mono">
+                  No urgent statutory breaches at this moment. All tickets within SLA.
+                </div>
+              ) : (
+                urgentTickets.map((t, idx) => {
+                  const isEscalated = t.status === 'ESCALATED_ZONAL';
+                  return (
+                    <div 
+                      key={t.id} 
+                      className={`p-3.5 rounded-lg border transition ${
+                        isEscalated 
+                          ? 'bg-red-50/50 border-red-200/80' 
+                          : 'bg-slate-50/70 border-slate-200/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-900 text-xs">#{t.id}</span>
+                          <span className="text-xs font-semibold text-slate-800 capitalize truncate max-w-[180px]">
+                            {t.problem}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => onSelectTicket(t)}
+                          className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1 shrink-0"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>Inspect</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs mt-1.5 font-mono">
+                        <span className="text-slate-500 text-[11px]">
+                          {t.assigned_circle || 'Circle 12'} &bull; {t.assigned_officer_name || 'Circle EE'}
+                        </span>
+                        {isEscalated ? (
+                          <span className="text-red-700 font-bold text-[11px] flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-red-600" /> T+7 Breached
+                          </span>
+                        ) : (
+                          <span className="text-amber-800 font-semibold text-[11px] flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-amber-600" /> Stage Expiring
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Primary Action Button: Open Master Grievance Registry */}
+          <div className="mt-5 pt-4 border-t border-slate-100">
             <button
-              onClick={() => onNavigate('map')}
-              className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 font-mono"
+              onClick={() => onNavigate('tickets')}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0a2540] hover:bg-[#153e6b] text-white rounded-xl text-xs font-semibold shadow-sm transition"
             >
-              View on GIS Map &rarr;
+              <span>Open Master Grievance Registry ({tickets.length} Records)</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-
-          <div className="space-y-3.5">
-            {hyderabadZones.map((zone, idx) => (
-              <div key={idx} className="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-lg border border-slate-200 transition">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-800 font-mono font-bold text-xs flex items-center justify-center">
-                      0{idx + 1}
-                    </span>
-                    <span className="text-sm font-bold text-slate-800">{zone.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                      {zone.tickets} Active Tickets
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-600 mb-2 font-mono">
-                  <span>Primary Issue: <b className="text-slate-800">{zone.issue}</b></span>
-                  <span>SLA Compliance: <b>{zone.progress}%</b></span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                  <div className={`h-full ${zone.color} rounded-full`} style={{ width: `${zone.progress}%` }}></div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* AI Intelligence Category Breakdown */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="pb-3 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              Intelligence Streams Distribution
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Live sensing breakdown across the 3 core vision engines
-            </p>
+        {/* Circle Municipal Officer Compliance Turnaround Scorecard (7 cols) */}
+        <div className="lg:col-span-7 gov-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="pb-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="gov-section-header text-base flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-700" />
+                  Circle Municipal Officer Compliance Scorecard
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Statutory SLA turnaround rates and officer administrative accountability
+                </p>
+              </div>
+              <span className="text-xs font-mono font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                T+3 &bull; T+5 &bull; T+7 Standards
+              </span>
+            </div>
+
+            {/* Scorecard Table */}
+            <div className="mt-4 overflow-x-auto">
+              <table className="gov-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr>
+                    <th className="py-2.5 px-3">Circle Officer &amp; Jurisdiction</th>
+                    <th className="py-2.5 px-3 text-center">Tasks Assigned</th>
+                    <th className="py-2.5 px-3 text-center">Avg Response</th>
+                    <th className="py-2.5 px-3 text-center">Resolution Rate</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-sans">
+                  {officerScorecard.map((officer, i) => (
+                    <tr key={i} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3 px-3">
+                        <div className="font-semibold text-slate-900">{officer.name}</div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">{officer.role} &bull; {officer.circle}</div>
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-semibold text-slate-800">
+                        {officer.tasks}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono text-slate-700">
+                        {officer.avgResponse}
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                        {officer.onTimeRate}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold border ${officer.statusColor}`}>
+                          {officer.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            {/* Stream 1: Road Infrastructure */}
-            <div
-              onClick={() => onNavigate('road')}
-              className="p-4 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer transition group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
-                  <span className="text-sm font-bold text-slate-800">Road Infrastructure</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-1 transition" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold text-emerald-700">
-                  {potholes || 18} Issues
-                </span>
-                <span className="text-xs font-mono text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded font-bold">
-                  Potholes &amp; Damage
-                </span>
-              </div>
-            </div>
-
-            {/* Stream 2: Traffic Intelligence */}
-            <div
-              onClick={() => onNavigate('traffic')}
-              className="p-4 bg-amber-50/50 hover:bg-amber-50 border border-amber-200 rounded-xl cursor-pointer transition group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                  <span className="text-sm font-bold text-slate-800">Traffic Intelligence</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-amber-600 group-hover:translate-x-1 transition" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold text-amber-600">
-                  {trafficCount || 12} Hotspots
-                </span>
-                <span className="text-xs font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-bold">
-                  Bottlenecks &amp; Density
-                </span>
-              </div>
-            </div>
-
-            {/* Stream 3: Safety Intelligence */}
-            <div
-              onClick={() => onNavigate('safety')}
-              className="p-4 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-200 rounded-xl cursor-pointer transition group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-3 h-3 rounded-full bg-indigo-600"></span>
-                  <span className="text-sm font-bold text-slate-800">Safety Intelligence</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-indigo-600 group-hover:translate-x-1 transition" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-extrabold text-indigo-600">
-                  {safetyCount || 8} Risks
-                </span>
-                <span className="text-xs font-mono text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded font-bold">
-                  Pedestrian Hazards
-                </span>
-              </div>
-            </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+            <span>GHMC Urban Asset Management Division</span>
+            <span>Automated Daily Sync &bull; 199 Officers</span>
           </div>
         </div>
-      </div>
-
-      {/* Corridor Delay & Traffic Insights + Contractor Governance Scorecard */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Real-time Transit Corridors & Speed Delays */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="pb-3 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Car className="w-5 h-5 text-amber-500" />
-              Key Arterial Corridor Speeds &amp; Public Transit Bottlenecks
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Live bus transit telemetry vs scheduled velocity across major roads
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {corridors.map((c, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm">
-                <div>
-                  <span className="font-bold text-slate-800 block">{c.name}</span>
-                  <span className="text-xs text-slate-500 font-mono">Bus Fleet Speed: <b className="text-slate-800">{c.busSpeed}</b></span>
-                </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono border ${c.color}`}>
-                  {c.flowStatus}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Contractor SLA Governance Performance */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="pb-3 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              Ward Contractor &amp; SLA Compliance Performance
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Resolution rate &amp; turnaround time metrics for assigned municipal contractors
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-slate-900 text-sm">Ward Contractor 12 (abhimanu6729@gmail.com)</span>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-mono">
-                  92.4% On-Time
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 font-mono mb-2">Jurisdiction: Banjara Hills, Jubilee Hills, Khairatabad</p>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
-                <div className="bg-white p-2 rounded border border-slate-200">
-                  <span className="text-slate-500 block">Avg Response</span>
-                  <b className="text-slate-800 text-sm">4.2 Hours</b>
-                </div>
-                <div className="bg-white p-2 rounded border border-slate-200">
-                  <span className="text-slate-500 block">Turnaround</span>
-                  <b className="text-slate-800 text-sm">18.5 Hours</b>
-                </div>
-                <div className="bg-white p-2 rounded border border-slate-200">
-                  <span className="text-slate-500 block">Proof Uploads</span>
-                  <b className="text-emerald-700 text-sm">100% Verified</b>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-slate-900 text-sm">Escalation Authority (lingarajusaikumar@gmail.com)</span>
-                <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-mono">
-                  Tier 2 Active
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 font-mono">
-                Automated 24h breach dispatch &bull; Emergency municipal intervention ready
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

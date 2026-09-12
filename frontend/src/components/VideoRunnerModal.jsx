@@ -101,7 +101,7 @@ export default function VideoRunnerModal({ isOpen, onClose, onSimulateSampleDete
         confidence: 0.95,
         location: { latitude: 17.3850, longitude: 78.4867 },
       });
-      setStatusMessage('Detected: Pothole -> Ticket #TICK-1001 created & Email sent to abhimanu6729@gmail.com!');
+      setStatusMessage('Detected: Pothole -> Ticket created & dispatched to assigned GHMC Circle Engineer with T+3 statutory intake timer!');
       setIsProcessing(false);
       setAnalysisResult({ status: 'success', type: 'demo', message: 'Demo defect recorded.' });
     }, 1500);

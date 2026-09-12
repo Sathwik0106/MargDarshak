@@ -184,8 +184,8 @@ def notify_ticket_assigned(ticket: Dict[str, Any]) -> bool:
 
 def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
     """
-    Sends SLA Escalation Alert to Zonal Administration (lingarajusaikumar@gmail.com).
-    Triggered automatically when the 48-hour SLA countdown reaches 0 or contractor fails to respond.
+    Sends Statutory T+7 SLA Escalation Alert to Zonal Commissioner.
+    Triggered automatically when the T+7 resolution deadline has expired without verified resolution.
     """
     ticket_id = ticket["id"]
     problem = ticket["problem"].capitalize()
@@ -194,7 +194,12 @@ def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
     lon = ticket["location"]["longitude"]
     maps_url = f"https://www.google.com/maps?q={lat},{lon}"
 
-    subject = f"[URGENT 48-HR SLA BREACH] Escalated Defect: {problem} (#{ticket_id}) - {votes} Vote(s)"
+    assigned_email = ticket.get("assigned_officer_email") or ticket.get("contractor_email") or CONTRACTOR_EMAIL
+    assigned_name = ticket.get("assigned_officer_name") or "Circle Executive Engineer"
+    escalation_email = ticket.get("escalation_officer_email") or ticket.get("escalation_email") or ESCALATION_EMAIL
+    escalation_name = ticket.get("escalation_officer_name") or "Zonal Commissioner"
+
+    subject = f"[URGENT T+7 SLA BREACH] Statutory Escalation: {problem} (#{ticket_id}) - {votes} Vote(s)"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -218,22 +223,23 @@ def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>⚠️ 48-HOUR SLA ESCALATION NOTICE</h1>
-                <p style="margin: 6px 0 0 0; font-size: 13px; color: #fecaca;">Zonal Higher Authority Immediate Intervention Required</p>
+                <h1>⚠️ STATUTORY T+7 SLA ESCALATION NOTICE</h1>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #fecaca;">Zonal Higher Authority Executive Action Required</p>
             </div>
             <div class="content">
-                <p>Hello <b>Higher Authority / Zonal Officer</b>,</p>
+                <p>Respected <b>{escalation_name}</b>,</p>
                 <div class="alert-banner">
-                    <b>Notice:</b> The mandatory <b>48-hour SLA countdown has expired</b> for Ticket <b>#{ticket_id}</b>. The assigned contractor (<b>{CONTRACTOR_EMAIL}</b>) has not resolved the defect.
+                    <b>Statutory Violation:</b> The <b>T+7 Resolution SLA (7 Days)</b> has expired for Ticket <b>#{ticket_id}</b>. The assigned municipal division (<b>{assigned_name} &bull; {assigned_email}</b>) has not marked verified resolution.
                 </div>
 
                 <table class="info-box">
                     <tr><td class="label">Ticket ID:</td><td class="val">#{ticket_id}</td></tr>
                     <tr><td class="label">Issue / Defect:</td><td class="val" style="color: #dc2626; font-size: 16px;">{problem}</td></tr>
-                    <tr><td class="label">Citizen/Fleet Priority:</td><td class="val"><span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{votes} Detection Vote(s) (Critical)</span></td></tr>
+                    <tr><td class="label">Citizen Priority:</td><td class="val"><span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{votes} Detection Vote(s) (Critical)</span></td></tr>
                     <tr><td class="label">Defect Location:</td><td class="val">{lat:.5f}, {lon:.5f} (<a href="{maps_url}" target="_blank" style="color: #2563eb; font-weight: bold;">Google Maps</a>)</td></tr>
-                    <tr><td class="label">Assigned Contractor:</td><td class="val">{CONTRACTOR_EMAIL} (Non-Responsive)</td></tr>
-                    <tr><td class="label">Governance Status:</td><td class="val" style="color: #dc2626; font-weight: bold;">ESCALATED_ZONAL</td></tr>
+                    <tr><td class="label">Assigned Officer:</td><td class="val">{assigned_name} ({assigned_email})</td></tr>
+                    <tr><td class="label">Escalation Authority:</td><td class="val">{escalation_name} ({escalation_email})</td></tr>
+                    <tr><td class="label">Governance Status:</td><td class="val" style="color: #dc2626; font-weight: bold;">ESCALATED_ZONAL (T+7 Breached)</td></tr>
                 </table>
 
                 <div style="margin: 20px 0; text-align: center;">
@@ -244,14 +250,14 @@ def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
                 <div style="background-color: #f1f5f9; padding: 14px; border-radius: 8px; font-size: 13px; color: #334155;">
                     <b>Executive Action Options:</b>
                     <ul style="margin: 6px 0 0 0; padding-left: 20px;">
-                        <li>Reassign to Emergency Flying Repair Squad</li>
-                        <li>Impose non-performance penalty on Ward Contractor {CONTRACTOR_EMAIL}</li>
-                        <li>Dispatch municipal supervisor for physical on-site audit</li>
+                        <li>Dispatch municipal emergency repair flying squad</li>
+                        <li>Issue show-cause notice to Circle Maintenance Division</li>
+                        <li>Summon contractor for physical road quality compliance review</li>
                     </ul>
                 </div>
             </div>
             <div class="footer">
-                MargDarshak Autonomous City Sensing Platform &bull; Automated SLA Governance
+                MargDarshak Autonomous City Sensing Platform &bull; T+3, T+5, T+7 Statutory SLA Governance
             </div>
         </div>
     </body>
@@ -259,4 +265,4 @@ def notify_ticket_escalated(ticket: Dict[str, Any]) -> bool:
     """
 
     img_bytes = _extract_ticket_image_bytes(ticket)
-    return send_email(ESCALATION_EMAIL, subject, html_body, image_bytes=img_bytes)
+    return send_email(escalation_email, subject, html_body, image_bytes=img_bytes)
