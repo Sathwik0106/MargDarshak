@@ -191,7 +191,7 @@ export default function ProofModal({ ticket, portalMode = 'admin', onClose, onEs
                           Contractor has received the SMS/Email dispatch link.
                         </span>
                         <a
-                          href={`http://localhost:8000/contractor/resolve/${ticket.id}`}
+                          href={`https://margdarshak-117n.onrender.com/contractor/resolve/${ticket.id}`}
                           target="_blank"
                           rel="noreferrer"
                           className="mt-3 px-2.5 py-1 bg-white border border-amber-300 text-amber-900 rounded font-bold text-[11px] hover:bg-amber-100 transition shadow-sm"
@@ -409,7 +409,7 @@ export default function ProofModal({ ticket, portalMode = 'admin', onClose, onEs
                 {portalMode === 'admin' ? (
                   <>
                     <a
-                      href={`http://localhost:8000/contractor/resolve/${ticket.id}`}
+                      href={`https://margdarshak-117n.onrender.com/contractor/resolve/${ticket.id}`}
                       target="_blank"
                       rel="noreferrer"
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition"

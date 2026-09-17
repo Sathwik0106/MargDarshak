@@ -39,7 +39,7 @@ export default function VideoRunnerModal({ isOpen, onClose, onSimulateSampleDete
     formData.append('longitude', '78.4867');
 
     try {
-      const res = await fetch('http://localhost:8000/api/analyze-upload', {
+      const res = await fetch('https://margdarshak-117n.onrender.com/api/analyze-upload', {
         method: 'POST',
         body: formData,
       });
@@ -55,7 +55,7 @@ export default function VideoRunnerModal({ isOpen, onClose, onSimulateSampleDete
           await new Promise((r) => setTimeout(r, 2000));
           attempts++;
           try {
-            const jobRes = await fetch(`http://localhost:8000/api/jobs/${jobId}`);
+            const jobRes = await fetch(`https://margdarshak-117n.onrender.com/api/jobs/${jobId}`);
             if (jobRes.ok) {
               const jobData = await jobRes.json();
               if (jobData.status === 'completed') {

@@ -15,7 +15,8 @@ import SafetyPage from './pages/SafetyPage';
 import MapPage from './pages/MapPage';
 import SlaMatrixPage from './pages/SlaMatrixPage';
 
-const API_BASE = 'http://localhost:8000';
+const API_URL = "https://margdarshak-117n.onrender.com";
+const API_BASE = API_URL;
 
 export default function App() {
   const [tickets, setTickets] = useState([]);

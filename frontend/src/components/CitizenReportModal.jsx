@@ -47,7 +47,7 @@ export default function CitizenReportModal({ isOpen, onClose, onTicketCreated })
         image_bytes: photoPreview || null,
       };
 
-      const res = await fetch('http://localhost:8000/api/detections', {
+      const res = await fetch('https://margdarshak-117n.onrender.com/api/detections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
